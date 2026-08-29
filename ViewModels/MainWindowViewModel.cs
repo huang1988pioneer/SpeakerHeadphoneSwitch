@@ -119,6 +119,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
             StatusText = $"第四步：將{target.KindLabel}音量調整至 33…";
             await _audioService.SetDeviceVolumeAsync(target, TargetVolume);
+            // Re-apply unmute after the volume write as well. Some macOS
+            // devices restore their saved mute bit after the first property
+            // update, so the final state must be explicitly audible.
+            await _audioService.SetDeviceMuteStateAsync(target, false);
 
             // Read back the system state before updating the UI. If macOS (or
             // a PulseAudio-compatible server) applies a delayed per-device
