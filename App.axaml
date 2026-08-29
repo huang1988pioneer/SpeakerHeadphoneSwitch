@@ -1,0 +1,48 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SpeakerHeadphoneSwitch.App"
+             xmlns:local="using:SpeakerHeadphoneSwitch"
+             RequestedThemeVariant="Dark">
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+  
+    <Application.Styles>
+        <FluentTheme />
+        <Style Selector="Window">
+            <Setter Property="Background" Value="#10131A" />
+            <Setter Property="FontFamily" Value="Inter" />
+        </Style>
+        <Style Selector="TextBlock.heading">
+            <Setter Property="Foreground" Value="#F5F7FB" />
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="#9CA7BA" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#6D5EF5" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="22,16" />
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#8174FF" />
+        </Style>
+        <Style Selector="Button.primary:pressed">
+            <Setter Property="Background" Value="#594BDD" />
+        </Style>
+        <Style Selector="Button.ghost">
+            <Setter Property="Background" Value="#1B2130" />
+            <Setter Property="Foreground" Value="#DCE3F1" />
+            <Setter Property="BorderBrush" Value="#303A50" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+    </Application.Styles>
+</Application>
