@@ -5,14 +5,14 @@ namespace SpeakerHeadphoneSwitch.Services;
 
 // ===== Core Audio (mmdeviceapi.dll) COM 介面宣告 =====
 
-// ComImport 類別不可標記 sealed,否則無法轉型成 COM 介面(轉型時執行 QueryInterface)
+// ComImport 類別不可標記 sealed，否則無法轉型成 COM 介面（轉型時執行 QueryInterface）
 [ComImport]
 [Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
 internal class MMDeviceEnumeratorComObject
 {
 }
 
-// PolicyConfigClient:未公開的 COM 類別,提供 SetDefaultEndpoint 切換預設裝置
+// PolicyConfigClient：未公開的 COM 類別，提供 SetDefaultEndpoint 切換預設裝置
 [ComImport]
 [Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
 internal class PolicyConfigComObject
@@ -122,7 +122,7 @@ internal interface IPropertyStore
 }
 
 [ComImport]
-[Guid("5CDF2C82-F84B-4E21-A3FB-4DED32D31295")]
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IAudioEndpointVolume
 {
@@ -181,7 +181,7 @@ internal interface IAudioEndpointVolume
     int GetVolumeRange(out float pfMin, out float pfMax, out float pfIncrement);
 }
 
-// IAudioSessionManager2:列舉裝置上所有工作階段,作為 IAudioEndpointVolume 無法使用時的音量備援
+// IAudioSessionManager2：列舉裝置上所有工作階段，作為 IAudioEndpointVolume 無法使用時的音量備援
 [ComImport]
 [Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -205,7 +205,7 @@ internal interface IAudioSessionManager2
     int UnregisterSessionNotification(IntPtr sessionNotification);
 }
 
-// 僅宣告會用到的 vtable 前段;取得後以 QueryInterface 轉型成 ISimpleAudioVolume
+// 僅宣告會用到的 vtable 前段；取得後以 QueryInterface 轉型成 ISimpleAudioVolume
 [ComImport]
 [Guid("F4B1A599-7266-4319-A8CA-E70ACB11E8CD")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -227,7 +227,7 @@ internal interface IAudioSessionEnumerator
     int GetSession(int sessionIndex, out IAudioSessionControl session);
 }
 
-// ISimpleAudioVolume:單一工作階段(session)的音量,作為 IAudioEndpointVolume 的備援
+// ISimpleAudioVolume：單一工作階段（session）的音量，作為 IAudioEndpointVolume 的備援
 [ComImport]
 [Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -290,7 +290,7 @@ internal interface IPolicyConfig
     int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, bool bVisible);
 }
 
-// Windows 7/8 版本的 IPolicyConfig(vtable 相同、IID 不同),作為後備
+// Windows 7/8 版本的 IPolicyConfig（vtable 相同、IID 不同），作為後備
 [ComImport]
 [Guid("F8679F50-850A-41CF-9C72-430F290290C8")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

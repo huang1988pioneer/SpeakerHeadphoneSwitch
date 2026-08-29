@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -16,6 +18,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     /// <summary>切換之前將目前裝置音量歸零(%)。</summary>
     private const float OffVolumePercent = 0f;
+
+    // Windows 切換端點後，驅動可能需要短暫時間才接受音量寫入；所有重試都有固定上限。
+    private const int EndpointVolumeAttempts = 8;
+    private const int EndpointVolumeRetryDelayMilliseconds = 40;
+    private const int DefaultDeviceAttempts = 20;
+    private const int DefaultDeviceRetryDelayMilliseconds = 50;
+    private const float VolumeVerificationTolerancePercent = 0.5f;
 
     private static readonly IBrush InfoBrush = new SolidColorBrush(Color.Parse("#7DD3FC"));
     private static readonly IBrush AccentBrush = new SolidColorBrush(Color.Parse("#F5B544"));
@@ -112,17 +121,18 @@ public partial class MainWindowViewModel : ObservableObject
 
             SetStatus(
                 "步驟 1 / 3",
-                $"先將「{plan.Current.Name}」音量降至 0%，避免切換瞬間爆音。",
+                $"先將「{plan.Current.Name}」端點音量降至 0%，避免切換瞬間爆音。",
                 AccentBrush);
+            // 切換流程禁止使用 session fallback：只有端點主音量才等同 Windows 音量滑桿。
             var currentVolumeSet = await Task.Run(
-                () => _audio.TrySetVolumePercent(plan.Current.Id, OffVolumePercent));
+                () => TrySetEndpointVolumeAndVerify(plan.Current.Id, OffVolumePercent));
 
-            // 無法先靜音時停止流程，確保「先降至 0% 再切換」不是只停留在提示文字。
+            // 無法先把端點音量驗證為 0% 時停止流程，確保「先降至 0% 再切換」不是只停留在提示文字。
             if (!currentVolumeSet)
             {
                 SetStatus(
                     "切換已停止",
-                    "無法將目前裝置音量設為 0%，為避免爆音，這次未切換輸出裝置。",
+                    "無法將目前裝置的 Windows 端點音量確認為 0%，為避免爆音，這次未切換輸出裝置。",
                     ErrorBrush);
                 return;
             }
@@ -131,6 +141,16 @@ public partial class MainWindowViewModel : ObservableObject
             try
             {
                 await Task.Run(() => _audio.SetDefaultOutputDevice(plan.Target.Id));
+                if (!await Task.Run(() => WaitForDefaultOutputDevice(plan.Target.Id)))
+                {
+                    await Task.Run(() => RestoreAfterFailedSwitch(plan));
+                    Refresh();
+                    SetStatus(
+                        "切換失敗",
+                        $"Windows 未能確認目前輸出已切換至「{plan.Target.Name}」，已嘗試恢復原本設定。",
+                        ErrorBrush);
+                    return;
+                }
             }
             catch (Exception ex)
             {
@@ -143,25 +163,26 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」音量設為 33%…", AccentBrush);
+            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」端點音量設為 33%…", AccentBrush);
             var targetVolumeSet = await Task.Run(
-                () => _audio.TrySetVolumePercent(plan.Target.Id, DefaultVolumePercent));
+                () => TrySetEndpointVolumeAndVerify(plan.Target.Id, DefaultVolumePercent));
+
+            if (!targetVolumeSet)
+            {
+                await Task.Run(() => RestoreAfterFailedSwitch(plan));
+                Refresh();
+                SetStatus(
+                    "切換已回復",
+                    $"無法將「{plan.Target.Name}」的 Windows 端點音量確認為 33%，已嘗試恢復原本設定。",
+                    ErrorBrush);
+                return;
+            }
 
             Refresh();
-            if (targetVolumeSet)
-            {
-                SetStatus(
-                    "切換完成",
-                    $"目前輸出為「{plan.Target.Name}」，音量已設為 33%。",
-                    SuccessBrush);
-            }
-            else
-            {
-                SetStatus(
-                    "已切換，但音量未確認",
-                    $"目前輸出已切換至「{plan.Target.Name}」，但系統未能確認 33% 音量設定。",
-                    WarningBrush);
-            }
+            SetStatus(
+                "切換完成",
+                $"目前輸出為「{plan.Target.Name}」，Windows 端點音量已確認為 33%。",
+                SuccessBrush);
         }
         catch (Exception ex)
         {
@@ -236,9 +257,66 @@ public partial class MainWindowViewModel : ObservableObject
                 "找不到另一個可切換的輸出裝置，請確認喇叭與耳機都已啟用。");
         }
 
+        // 只把端點音量當成切換前狀態；session 音量不能代表 Windows 裝置滑桿。
+        var previousVolume = _audio.TryGetEndpointVolumePercent(current.Id)
+                             ?? _audio.TryGetVolumePercent(current.Id);
         return new SwitchPlanResult(
-            new SwitchPlan(current, target, _audio.TryGetVolumePercent(current.Id)),
+            new SwitchPlan(current, target, previousVolume),
             string.Empty);
+    }
+
+    private bool TrySetEndpointVolumeAndVerify(string deviceId, float expectedPercent)
+    {
+        for (var attempt = 0; attempt < EndpointVolumeAttempts; attempt++)
+        {
+            try
+            {
+                if (_audio.TrySetEndpointVolumePercent(deviceId, expectedPercent)
+                    && _audio.TryGetEndpointVolumePercent(deviceId) is float actualPercent
+                    && IsExpectedVolume(actualPercent, expectedPercent))
+                {
+                    return true;
+                }
+            }
+            catch (COMException)
+            {
+                // 音訊端點剛完成切換時，驅動可能暫時拒絕 COM 呼叫；下一次嘗試仍受上限限制。
+            }
+
+            if (attempt + 1 < EndpointVolumeAttempts)
+                Thread.Sleep(EndpointVolumeRetryDelayMilliseconds);
+        }
+
+        return false;
+    }
+
+    private bool WaitForDefaultOutputDevice(string expectedDeviceId)
+    {
+        for (var attempt = 0; attempt < DefaultDeviceAttempts; attempt++)
+        {
+            try
+            {
+                if (_audio.GetDefaultOutputDevice()?.Id == expectedDeviceId)
+                    return true;
+            }
+            catch (COMException)
+            {
+                // 讓下一次輪詢等待 Core Audio 完成裝置狀態更新。
+            }
+
+            if (attempt + 1 < DefaultDeviceAttempts)
+                Thread.Sleep(DefaultDeviceRetryDelayMilliseconds);
+        }
+
+        return false;
+    }
+
+    private static bool IsExpectedVolume(float actualPercent, float expectedPercent)
+    {
+        // 0% 必須確實是靜音；33% 允許端點硬體量化造成的小數點誤差。
+        return expectedPercent == OffVolumePercent
+            ? actualPercent <= 0.01f
+            : Math.Abs(actualPercent - expectedPercent) <= VolumeVerificationTolerancePercent;
     }
 
     private void RestoreAfterFailedSwitch(SwitchPlan plan)
@@ -246,14 +324,17 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             _audio.SetDefaultOutputDevice(plan.Current.Id);
+            WaitForDefaultOutputDevice(plan.Current.Id);
         }
         catch
         {
             // 原始切換失敗後，恢復預設端點也可能失敗；保留原始錯誤給使用者。
         }
 
-        if (plan.PreviousVolume is float previousVolume)
+        if (plan.PreviousVolume is float previousVolume
+            && !TrySetEndpointVolumeAndVerify(plan.Current.Id, previousVolume))
         {
+            // 僅作為復原最後手段；正常切換流程絕不使用 session fallback。
             _audio.TrySetVolumePercent(plan.Current.Id, previousVolume);
         }
     }
@@ -275,7 +356,8 @@ public partial class MainWindowViewModel : ObservableObject
             DeviceKind.Speaker => "喇叭輸出",
             _ => "其他輸出",
         };
-        CurrentVolumeText = _audio.TryGetVolumePercent(current.Id) is float volume
+        // 顯示值也只讀端點主音量，避免把 session 音量誤顯示成 Windows 裝置音量。
+        CurrentVolumeText = _audio.TryGetEndpointVolumePercent(current.Id) is float volume
             ? $"{volume:0}%"
             : "無法讀取";
 
