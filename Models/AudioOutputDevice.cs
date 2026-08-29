@@ -12,6 +12,15 @@ public sealed record AudioOutputDevice(
     string Name,
     AudioOutputKind Kind)
 {
+    /// <summary>
+    /// User-facing device name. macOS may return the traditional Chinese
+    /// term "揚聲器" for speakers; use the app's preferred term "喇叭"
+    /// without changing the original name used by the audio APIs.
+    /// </summary>
+    public string DisplayName => Name
+        .Replace("揚聲器", "喇叭", StringComparison.Ordinal)
+        .Replace("扬声器", "喇叭", StringComparison.Ordinal);
+
     public string KindLabel => Kind switch
     {
         AudioOutputKind.Speakers => "喇叭",

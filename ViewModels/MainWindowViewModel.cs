@@ -144,7 +144,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 Devices.Add(device);
             }
 
-            CurrentDeviceName = snapshot.CurrentDevice?.Name ?? "找不到目前輸出裝置";
+            CurrentDeviceName = snapshot.CurrentDevice?.DisplayName ?? "找不到目前輸出裝置";
             CurrentDeviceType = snapshot.CurrentDevice?.KindLabel ?? "未辨識";
             CurrentVolumeText = $"{snapshot.VolumePercent}%";
             _targetDevice = SelectTarget(snapshot);
@@ -164,7 +164,7 @@ public partial class MainWindowViewModel : ViewModelBase
             else
             {
                 HasSwitchTarget = true;
-                TargetDeviceName = _targetDevice.Name;
+                TargetDeviceName = _targetDevice.DisplayName;
                 TargetDeviceType = _targetDevice.KindLabel;
                 ActionButtonText = $"一鍵切換至{_targetDevice.KindLabel}";
                 if (showLoading)

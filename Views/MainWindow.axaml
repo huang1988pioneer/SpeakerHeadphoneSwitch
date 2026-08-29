@@ -136,7 +136,7 @@
                                            VerticalAlignment="Center"
                                            Width="30" />
                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}"
+                                    <TextBlock Text="{Binding DisplayName}"
                                                Foreground="#E9EDF5"
                                                TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding KindLabel}" Classes="muted" />
