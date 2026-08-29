@@ -1,0 +1,7 @@
+bin/
+obj/
+.repro/
+.vs/
+TestResults/
+*.user
+*.suo

@@ -1,0 +1,322 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SpeakerHeadphoneSwitch.ViewModels"
+        xmlns:shapes="using:Avalonia.Controls.Shapes"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="560" d:DesignHeight="620"
+        x:Class="SpeakerHeadphoneSwitch.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="音訊快速切換"
+        Width="560" Height="620"
+        MinWidth="480" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackgroundBrush}">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <Border Margin="18"
+                Padding="26"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource LineBrush}"
+                BorderThickness="1"
+                CornerRadius="24">
+            <StackPanel Spacing="22">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="音訊快速切換"
+                                   FontSize="28"
+                                   FontWeight="Bold"
+                                   LetterSpacing="0.2" />
+                        <TextBlock Text="先靜音，再換裝置，最後回到 33%"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Classes="ghost"
+                            Command="{Binding RefreshStatusCommand}"
+                            ToolTip.Tip="重新讀取目前輸出裝置"
+                            VerticalAlignment="Top">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <shapes:Path Data="M 19,8 A 7,7 0 1 0 19,16"
+                                         Width="16" Height="16"
+                                         Stretch="Uniform"
+                                         Stroke="{DynamicResource TextSecondaryBrush}"
+                                         StrokeThickness="1.8"
+                                         StrokeLineCap="Round"
+                                         StrokeJoin="Round" />
+                            <TextBlock Text="重新讀取"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <Border Padding="18"
+                        Background="{DynamicResource SurfaceElevatedBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="20">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                        <Border Width="58" Height="58"
+                                Background="{DynamicResource AccentSoftBrush}"
+                                CornerRadius="17"
+                                VerticalAlignment="Top">
+                            <Grid>
+                                <shapes:Path Data="M 6,10 L 10,10 L 16,6 L 16,18 L 10,14 L 6,14 Z M 19,9 C 21,11 21,13 19,15 M 21,6 C 25,10 25,14 21,18"
+                                             Width="32" Height="32"
+                                             Stretch="Uniform"
+                                             Stroke="{DynamicResource AccentBrush}"
+                                             StrokeThickness="1.8"
+                                             Fill="Transparent"
+                                             StrokeLineCap="Round"
+                                             StrokeJoin="Round"
+                                             IsVisible="{Binding IsSpeaker}" />
+                                <shapes:Path Data="M 5,14 L 5,11 C 5,6.6 8.1,3 12,3 C 15.9,3 19,6.6 19,11 L 19,14 M 3,13 L 7,13 L 7,20 L 3,20 Z M 17,13 L 21,13 L 21,20 L 17,20 Z"
+                                             Width="32" Height="32"
+                                             Stretch="Uniform"
+                                             Stroke="{DynamicResource AccentBrush}"
+                                             StrokeThickness="1.8"
+                                             Fill="Transparent"
+                                             StrokeLineCap="Round"
+                                             StrokeJoin="Round"
+                                             IsVisible="{Binding IsHeadphone}" />
+                                <TextBlock Text="?"
+                                           FontSize="26"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           IsVisible="{Binding IsOtherOutput}" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Column="1"
+                                    Spacing="5"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="目前輸出"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Text="{Binding CurrentDeviceName}"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="280" />
+                            <TextBlock Text="{Binding CurrentKindText}"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </StackPanel>
+
+                        <Border Grid.Column="2"
+                                MinWidth="86"
+                                Padding="12,9"
+                                Background="{DynamicResource SurfaceMutedBrush}"
+                                CornerRadius="14"
+                                VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="音量"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding CurrentVolumeText}"
+                                           FontSize="23"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentStrongBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Padding="17"
+                        Background="{DynamicResource SurfaceMutedBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="18">
+                    <StackPanel Spacing="16">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="安全切換順序"
+                                           FontSize="16"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="每次操作都會依序完成，不跳過靜音步驟。"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding TargetKindText}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AccentStrongBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto,*,Auto,*" ColumnSpacing="10">
+                            <StackPanel Grid.Column="0" Spacing="7">
+                                <Border Width="32" Height="32"
+                                        Background="{DynamicResource AccentSoftBrush}"
+                                        CornerRadius="10"
+                                        HorizontalAlignment="Center">
+                                    <TextBlock Text="1"
+                                               FontSize="15"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource AccentStrongBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="先靜音"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="音量 0%"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+
+                            <shapes:Path Grid.Column="1"
+                                         Data="M 0,4 L 12,4 M 8,0 L 12,4 L 8,8"
+                                         Width="14" Height="14"
+                                         Stretch="Uniform"
+                                         Stroke="{DynamicResource TextMutedBrush}"
+                                         StrokeThickness="1.6"
+                                         StrokeLineCap="Round"
+                                         StrokeJoin="Round"
+                                         VerticalAlignment="Center" />
+
+                            <StackPanel Grid.Column="2" Spacing="7">
+                                <Border Width="32" Height="32"
+                                        Background="{DynamicResource AccentSoftBrush}"
+                                        CornerRadius="10"
+                                        HorizontalAlignment="Center">
+                                    <TextBlock Text="2"
+                                               FontSize="15"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource AccentStrongBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="切換輸出"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="Windows 預設"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+
+                            <shapes:Path Grid.Column="3"
+                                         Data="M 0,4 L 12,4 M 8,0 L 12,4 L 8,8"
+                                         Width="14" Height="14"
+                                         Stretch="Uniform"
+                                         Stroke="{DynamicResource TextMutedBrush}"
+                                         StrokeThickness="1.6"
+                                         StrokeLineCap="Round"
+                                         StrokeJoin="Round"
+                                         VerticalAlignment="Center" />
+
+                            <StackPanel Grid.Column="4" Spacing="7">
+                                <Border Width="32" Height="32"
+                                        Background="{DynamicResource AccentSoftBrush}"
+                                        CornerRadius="10"
+                                        HorizontalAlignment="Center">
+                                    <TextBlock Text="3"
+                                               FontSize="15"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource AccentStrongBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="恢復音量"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="音量 33%"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <ProgressBar Height="4"
+                             IsIndeterminate="True"
+                             Foreground="{DynamicResource AccentBrush}"
+                             IsVisible="{Binding IsBusy}" />
+
+                <Button Classes="primary"
+                        Command="{Binding ToggleCommand}"
+                        Height="58"
+                        HorizontalContentAlignment="Center"
+                        IsDefault="True">
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="10"
+                                HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding ToggleButtonText}"
+                                   FontSize="17"
+                                   FontWeight="SemiBold"
+                                   Foreground="#16120A"
+                                   VerticalAlignment="Center" />
+                        <Grid Width="22" Height="22">
+                            <shapes:Path Data="M 5,9 L 9,9 L 15,5 L 15,17 L 9,13 L 5,13 Z M 18,8 C 20,10 20,12 18,14 M 20,5 C 24,9 24,13 20,17"
+                                         Width="22" Height="22"
+                                         Stretch="Uniform"
+                                         Stroke="#16120A"
+                                         StrokeThickness="1.6"
+                                         Fill="Transparent"
+                                         StrokeLineCap="Round"
+                                         StrokeJoin="Round"
+                                         IsVisible="{Binding IsTargetSpeaker}" />
+                            <shapes:Path Data="M 5,13 L 5,10 C 5,6.5 8.1,4 12,4 C 15.9,4 19,6.5 19,10 L 19,13 M 3,12 L 7,12 L 7,19 L 3,19 Z M 17,12 L 21,12 L 21,19 L 17,19 Z"
+                                         Width="22" Height="22"
+                                         Stretch="Uniform"
+                                         Stroke="#16120A"
+                                         StrokeThickness="1.6"
+                                         Fill="Transparent"
+                                         StrokeLineCap="Round"
+                                         StrokeJoin="Round"
+                                         IsVisible="{Binding IsTargetHeadphone}" />
+                        </Grid>
+                    </StackPanel>
+                </Button>
+
+                <Border Padding="15"
+                        Background="{DynamicResource SurfaceElevatedBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="16">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border Width="10" Height="10"
+                                CornerRadius="5"
+                                Background="{Binding StatusBrush}"
+                                VerticalAlignment="Top"
+                                Margin="2,6,0,0" />
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding StatusTitle}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding StatusText}"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="Windows 音訊輸出 · Enter 鍵也可執行切換"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </ScrollViewer>
+</Window>
