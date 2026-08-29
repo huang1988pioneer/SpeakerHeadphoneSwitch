@@ -110,9 +110,10 @@
                                Classes="muted" />
                     <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
                                Margin="0,10,0,0"
-                               Text="音量 0  →  切換輸出裝置  →  音量 33"
+                               Text="必要時解除靜音  →  音量 0  →  切換  →  解除靜音  →  音量 33"
                                Foreground="#A99FFF"
-                               FontSize="15" />
+                               FontSize="14"
+                               TextWrapping="Wrap" />
                 </Grid>
             </Border>
 

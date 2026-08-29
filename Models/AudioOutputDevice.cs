@@ -34,4 +34,5 @@ public sealed record AudioOutputDevice(
 public sealed record AudioSnapshot(
     IReadOnlyList<AudioOutputDevice> Devices,
     AudioOutputDevice? CurrentDevice,
-    int VolumePercent);
+    int VolumePercent,
+    bool IsMuted = false);

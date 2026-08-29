@@ -31,12 +31,19 @@ internal sealed class PactlAudioService : IAudioService
             cancellationToken);
         volumeResult.ThrowIfFailed("讀取 Linux 音量失敗");
 
+        var muteResult = await ProcessRunner.RunAsync(
+            "pactl",
+            new[] { "get-sink-mute", "@DEFAULT_SINK@" },
+            cancellationToken);
+        muteResult.ThrowIfFailed("讀取 Linux 靜音狀態失敗");
+
         var devices = ParseDevices(sinksResult.StandardOutput);
         var currentId = defaultResult.StandardOutput.Trim();
         var current = devices.FirstOrDefault(device => device.Id == currentId);
         var volume = ParseVolume(volumeResult.StandardOutput);
+        var isMuted = ParseMute(muteResult.StandardOutput);
 
-        return new AudioSnapshot(devices, current, volume);
+        return new AudioSnapshot(devices, current, volume, isMuted);
     }
 
     public async Task SetVolumeAsync(int percent, CancellationToken cancellationToken = default)
@@ -46,6 +53,63 @@ internal sealed class PactlAudioService : IAudioService
             new[] { "set-sink-volume", "@DEFAULT_SINK@", $"{Math.Clamp(percent, 0, 100)}%" },
             cancellationToken);
         result.ThrowIfFailed("設定 Linux 音量失敗");
+    }
+
+    public async Task<bool> GetMuteStateAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await ProcessRunner.RunAsync(
+            "pactl",
+            new[] { "get-sink-mute", "@DEFAULT_SINK@" },
+            cancellationToken);
+        result.ThrowIfFailed("讀取 Linux 靜音狀態失敗");
+        return ParseMute(result.StandardOutput);
+    }
+
+    public async Task SetMuteStateAsync(
+        bool muted,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await ProcessRunner.RunAsync(
+            "pactl",
+            new[] { "set-sink-mute", "@DEFAULT_SINK@", muted ? "1" : "0" },
+            cancellationToken);
+        result.ThrowIfFailed($"設定 Linux {(muted ? "靜音" : "解除靜音")}失敗");
+    }
+
+    public async Task SetDeviceVolumeAsync(
+        AudioOutputDevice device,
+        int percent,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await ProcessRunner.RunAsync(
+            "pactl",
+            new[] { "set-sink-volume", device.Id, $"{Math.Clamp(percent, 0, 100)}%" },
+            cancellationToken);
+        result.ThrowIfFailed("設定 Linux 音量失敗");
+    }
+
+    public async Task<bool> GetDeviceMuteStateAsync(
+        AudioOutputDevice device,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await ProcessRunner.RunAsync(
+            "pactl",
+            new[] { "get-sink-mute", device.Id },
+            cancellationToken);
+        result.ThrowIfFailed("讀取 Linux 裝置靜音狀態失敗");
+        return ParseMute(result.StandardOutput);
+    }
+
+    public async Task SetDeviceMuteStateAsync(
+        AudioOutputDevice device,
+        bool muted,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await ProcessRunner.RunAsync(
+            "pactl",
+            new[] { "set-sink-mute", device.Id, muted ? "1" : "0" },
+            cancellationToken);
+        result.ThrowIfFailed($"設定 Linux 裝置 {(muted ? "靜音" : "解除靜音")}失敗");
     }
 
     public async Task SwitchOutputAsync(
@@ -105,6 +169,24 @@ internal sealed class PactlAudioService : IAudioService
         return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var volume)
             ? Math.Clamp(volume, 0, 100)
             : 0;
+    }
+
+    private static bool ParseMute(string output)
+    {
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("Mute:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return trimmed[(trimmed.IndexOf(':') + 1)..]
+                .Trim()
+                .Equals("yes", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     private static string ReadString(JsonElement element, string propertyName)
