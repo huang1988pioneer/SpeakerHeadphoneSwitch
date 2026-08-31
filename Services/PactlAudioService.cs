@@ -140,7 +140,11 @@ internal sealed class PactlAudioService : IAudioService
 
                 var description = ReadString(sink, "description");
                 var displayName = string.IsNullOrWhiteSpace(description) ? id : description;
-                devices.Add(new AudioOutputDevice(id, displayName, Classify($"{id} {description}")));
+                var metadata = $"{id} {description} {ReadPropertyValues(sink)}";
+                devices.Add(new AudioOutputDevice(id, displayName, Classify(metadata))
+                {
+                    IsBluetooth = AudioOutputDevice.LooksLikeBluetooth(metadata),
+                });
             }
 
             return devices;
@@ -196,11 +200,24 @@ internal sealed class PactlAudioService : IAudioService
             : string.Empty;
     }
 
+    private static string ReadPropertyValues(JsonElement sink)
+    {
+        if (!sink.TryGetProperty("properties", out var properties)
+            || properties.ValueKind != JsonValueKind.Object)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(
+            ' ',
+            properties.EnumerateObject().Select(property => $"{property.Name} {property.Value}"));
+    }
+
     private static AudioOutputKind Classify(string name)
     {
         var value = name.ToLowerInvariant();
 
-        if (ContainsAny(value, "headphone", "headset", "airpods", "earphone", "earbud", "bluetooth", "耳機", "耳塞"))
+        if (ContainsAny(value, "headphone", "headset", "airpods", "earphone", "earbud", "耳機", "耳塞"))
         {
             return AudioOutputKind.Headphones;
         }

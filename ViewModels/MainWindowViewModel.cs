@@ -11,6 +11,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private const int TargetVolume = 33;
 
     private readonly IAudioService _audioService;
+    private readonly Dictionary<string, bool> _bluetoothOverrides = new(StringComparer.Ordinal);
+    private AudioSnapshot? _lastSnapshot;
+    private string? _selectedSpeakerDeviceId;
+    private string? _selectedHeadphonesDeviceId;
+    private string? _selectedBluetoothSpeakerDeviceId;
+    private string? _selectedBluetoothHeadphonesDeviceId;
+    private AudioOutputDevice? _selectedSpeakerDevice;
+    private AudioOutputDevice? _selectedHeadphonesDevice;
+    private AudioOutputDevice? _selectedBluetoothSpeakerDevice;
+    private AudioOutputDevice? _selectedBluetoothHeadphonesDevice;
     private AudioOutputDevice? _targetDevice;
 
     public MainWindowViewModel()
@@ -25,6 +35,74 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     public ObservableCollection<AudioOutputDevice> Devices { get; } = new();
+
+    public AudioOutputDevice? SelectedSpeakerDevice
+    {
+        get => _selectedSpeakerDevice;
+        set
+        {
+            if (SetProperty(ref _selectedSpeakerDevice, value))
+            {
+                if (value is not null)
+                {
+                    _selectedSpeakerDeviceId = value.Id;
+                }
+
+                UpdateTargetSelection();
+            }
+        }
+    }
+
+    public AudioOutputDevice? SelectedHeadphonesDevice
+    {
+        get => _selectedHeadphonesDevice;
+        set
+        {
+            if (SetProperty(ref _selectedHeadphonesDevice, value))
+            {
+                if (value is not null)
+                {
+                    _selectedHeadphonesDeviceId = value.Id;
+                }
+
+                UpdateTargetSelection();
+            }
+        }
+    }
+
+    public AudioOutputDevice? SelectedBluetoothSpeakerDevice
+    {
+        get => _selectedBluetoothSpeakerDevice;
+        set
+        {
+            if (SetProperty(ref _selectedBluetoothSpeakerDevice, value))
+            {
+                if (value is not null)
+                {
+                    _selectedBluetoothSpeakerDeviceId = value.Id;
+                }
+
+                UpdateTargetSelection();
+            }
+        }
+    }
+
+    public AudioOutputDevice? SelectedBluetoothHeadphonesDevice
+    {
+        get => _selectedBluetoothHeadphonesDevice;
+        set
+        {
+            if (SetProperty(ref _selectedBluetoothHeadphonesDevice, value))
+            {
+                if (value is not null)
+                {
+                    _selectedBluetoothHeadphonesDeviceId = value.Id;
+                }
+
+                UpdateTargetSelection();
+            }
+        }
+    }
 
     public string PlatformDescription => _audioService.PlatformDescription;
 
@@ -189,46 +267,35 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             var snapshot = await _audioService.GetSnapshotAsync();
+            _lastSnapshot = snapshot;
+            foreach (var device in Devices)
+            {
+                _bluetoothOverrides[device.Id] = device.IsBluetooth;
+            }
+
             Devices.Clear();
             foreach (var device in snapshot.Devices)
             {
+                if (_bluetoothOverrides.TryGetValue(device.Id, out var isBluetooth))
+                {
+                    device.IsBluetooth = isBluetooth;
+                }
+
                 Devices.Add(device);
             }
+
+            RestoreRoleSelections(snapshot.Devices);
 
             CurrentDeviceName = snapshot.CurrentDevice?.DisplayName ?? "找不到目前輸出裝置";
             CurrentDeviceType = snapshot.CurrentDevice?.KindLabel ?? "未辨識";
             CurrentVolumeText = snapshot.IsMuted
                 ? $"靜音 · {snapshot.VolumePercent}%"
                 : $"{snapshot.VolumePercent}%";
-            _targetDevice = SelectTarget(snapshot);
-
-            if (_targetDevice is null)
-            {
-                HasSwitchTarget = false;
-                TargetDeviceName = "沒有可切換裝置";
-                TargetDeviceType = "—";
-                ActionButtonText = "沒有可切換裝置";
-                if (showLoading)
-                {
-                    StatusText = "請先連接喇叭或耳機";
-                    StatusDetail = "需要至少兩個可用的音訊輸出裝置。";
-                }
-            }
-            else
-            {
-                HasSwitchTarget = true;
-                TargetDeviceName = _targetDevice.DisplayName;
-                TargetDeviceType = _targetDevice.KindLabel;
-                ActionButtonText = $"一鍵切換至{_targetDevice.KindLabel}";
-                if (showLoading)
-                {
-                    StatusText = $"準備就緒：可切換至{_targetDevice.KindLabel}";
-                    StatusDetail = "必要時先解除靜音，再依序執行：音量 0 → 切換輸出 → 解除目標靜音 → 音量 33。";
-                }
-            }
+            ApplyTargetSelection(snapshot, showLoading);
         }
         catch (Exception exception)
         {
+            _lastSnapshot = null;
             HasSwitchTarget = false;
             IsError = true;
             CurrentDeviceName = "無法讀取音訊裝置";
@@ -241,14 +308,143 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private static AudioOutputDevice? SelectTarget(AudioSnapshot snapshot)
+    private void RestoreRoleSelections(IReadOnlyList<AudioOutputDevice> devices)
+    {
+        _selectedSpeakerDevice = ResolveRoleSelection(
+            _selectedSpeakerDeviceId,
+            devices,
+            device => device.Kind == AudioOutputKind.Speakers && !device.IsBluetooth);
+        if (_selectedSpeakerDevice is not null)
+        {
+            _selectedSpeakerDeviceId = _selectedSpeakerDevice.Id;
+        }
+
+        OnPropertyChanged(nameof(SelectedSpeakerDevice));
+
+        _selectedHeadphonesDevice = ResolveRoleSelection(
+            _selectedHeadphonesDeviceId,
+            devices,
+            device => device.Kind == AudioOutputKind.Headphones && !device.IsBluetooth);
+        if (_selectedHeadphonesDevice is not null)
+        {
+            _selectedHeadphonesDeviceId = _selectedHeadphonesDevice.Id;
+        }
+
+        OnPropertyChanged(nameof(SelectedHeadphonesDevice));
+
+        _selectedBluetoothSpeakerDevice = ResolveRoleSelection(
+            _selectedBluetoothSpeakerDeviceId,
+            devices,
+            device => device.IsBluetooth && device.Kind == AudioOutputKind.Speakers);
+        if (_selectedBluetoothSpeakerDevice is not null)
+        {
+            _selectedBluetoothSpeakerDeviceId = _selectedBluetoothSpeakerDevice.Id;
+        }
+
+        OnPropertyChanged(nameof(SelectedBluetoothSpeakerDevice));
+
+        _selectedBluetoothHeadphonesDevice = ResolveRoleSelection(
+            _selectedBluetoothHeadphonesDeviceId,
+            devices,
+            device => device.IsBluetooth && device.Kind == AudioOutputKind.Headphones);
+        if (_selectedBluetoothHeadphonesDevice is not null)
+        {
+            _selectedBluetoothHeadphonesDeviceId = _selectedBluetoothHeadphonesDevice.Id;
+        }
+
+        OnPropertyChanged(nameof(SelectedBluetoothHeadphonesDevice));
+    }
+
+    private static AudioOutputDevice? ResolveRoleSelection(
+        string? selectedDeviceId,
+        IReadOnlyList<AudioOutputDevice> devices,
+        Func<AudioOutputDevice, bool> fallbackPredicate)
+    {
+        if (!string.IsNullOrWhiteSpace(selectedDeviceId))
+        {
+            return devices.FirstOrDefault(device => device.Id == selectedDeviceId);
+        }
+
+        return devices.FirstOrDefault(fallbackPredicate);
+    }
+
+    private void UpdateTargetSelection()
+    {
+        if (_lastSnapshot is not null)
+        {
+            ApplyTargetSelection(_lastSnapshot, showLoading: false);
+        }
+    }
+
+    private void ApplyTargetSelection(AudioSnapshot snapshot, bool showLoading)
+    {
+        _targetDevice = SelectTarget(snapshot);
+
+        if (_targetDevice is null)
+        {
+            HasSwitchTarget = false;
+            TargetDeviceName = "沒有可切換裝置";
+            TargetDeviceType = "—";
+            ActionButtonText = "沒有可切換裝置";
+            if (showLoading)
+            {
+                StatusText = "請先連接喇叭或耳機";
+                StatusDetail = "需要至少兩個可用的音訊輸出裝置。";
+            }
+
+            return;
+        }
+
+        HasSwitchTarget = true;
+        TargetDeviceName = _targetDevice.DisplayName;
+        TargetDeviceType = _targetDevice.KindLabel;
+        ActionButtonText = $"一鍵切換至{_targetDevice.KindLabel}";
+        if (showLoading)
+        {
+            StatusText = $"準備就緒：可切換至{_targetDevice.KindLabel}";
+            StatusDetail = "必要時先解除靜音，再依序執行：音量 0 → 切換輸出 → 解除目標靜音 → 音量 33。";
+        }
+    }
+
+    private AudioOutputDevice? SelectTarget(AudioSnapshot snapshot)
     {
         var currentId = snapshot.CurrentDevice?.Id;
         var candidates = snapshot.Devices
             .Where(device => device.Id != currentId)
             .ToArray();
 
-        if (snapshot.CurrentDevice?.Kind == AudioOutputKind.Headphones)
+        if (candidates.Length == 0)
+        {
+            return null;
+        }
+
+        var selectedTarget = GetAssignedTarget(currentId, candidates);
+        if (selectedTarget is not null)
+        {
+            return selectedTarget;
+        }
+
+        var current = snapshot.CurrentDevice;
+        if (current?.IsBluetooth == true)
+        {
+            if (current.Kind == AudioOutputKind.Headphones)
+            {
+                return candidates.FirstOrDefault(device => device.IsBluetooth && device.Kind == AudioOutputKind.Speakers)
+                    ?? candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Speakers)
+                    ?? candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Headphones)
+                    ?? candidates.FirstOrDefault();
+            }
+
+            if (current.Kind == AudioOutputKind.Speakers)
+            {
+                return candidates.FirstOrDefault(device => device.IsBluetooth && device.Kind == AudioOutputKind.Headphones)
+                    ?? candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Headphones)
+                    ?? candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Speakers)
+                    ?? candidates.FirstOrDefault();
+            }
+        }
+
+        if (current?.Kind == AudioOutputKind.Headphones)
         {
             return candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Speakers)
                 ?? candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Unknown);
@@ -257,5 +453,28 @@ public partial class MainWindowViewModel : ViewModelBase
         return candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Headphones)
             ?? candidates.FirstOrDefault(device => device.Kind == AudioOutputKind.Speakers)
             ?? candidates.FirstOrDefault();
+    }
+
+    private AudioOutputDevice? GetAssignedTarget(
+        string? currentId,
+        IReadOnlyList<AudioOutputDevice> candidates)
+    {
+        if (string.IsNullOrWhiteSpace(currentId))
+        {
+            return null;
+        }
+
+        string? targetId = currentId switch
+        {
+            _ when currentId == _selectedSpeakerDeviceId => _selectedHeadphonesDeviceId,
+            _ when currentId == _selectedHeadphonesDeviceId => _selectedSpeakerDeviceId,
+            _ when currentId == _selectedBluetoothSpeakerDeviceId => _selectedBluetoothHeadphonesDeviceId,
+            _ when currentId == _selectedBluetoothHeadphonesDeviceId => _selectedBluetoothSpeakerDeviceId,
+            _ => null,
+        };
+
+        return targetId is null
+            ? null
+            : candidates.FirstOrDefault(device => device.Id == targetId);
     }
 }

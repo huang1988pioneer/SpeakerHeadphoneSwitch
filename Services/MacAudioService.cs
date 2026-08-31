@@ -26,6 +26,7 @@ internal sealed class MacAudioService : IAudioService
     private const uint PropertyDevices = 0x6465_7623; // 'dev#'
     private const uint PropertyDefaultOutputDevice = 0x644F_7574; // 'dOut'
     private const uint PropertyName = 0x6C6E_616D; // 'lnam'
+    private const uint PropertyTransportType = 0x7472_616E; // 'tran'
     private const uint PropertyStreamConfiguration = 0x736C_6179; // 'slay'
     private const uint PropertyVolumeScalar = 0x766F_6C6D; // 'volm'
     private const uint PropertyVirtualMainVolume = 0x766D_7663; // 'vmvc'
@@ -34,6 +35,8 @@ internal sealed class MacAudioService : IAudioService
     private const uint ScopeOutput = 0x6F75_7470; // 'outp'
     private const uint ElementMain = 0;
     private const uint Utf8Encoding = 0x0800_0100;
+    private const uint TransportBluetooth = 0x626C_7565; // 'blue'
+    private const uint TransportBluetoothLe = 0x626C_6561; // 'blea'
 
     public string PlatformDescription => "macOS CoreAudio";
 
@@ -665,7 +668,10 @@ internal sealed class MacAudioService : IAudioService
                 devices.Add(new AudioOutputDevice(
                     deviceId.ToString(CultureInfo.InvariantCulture),
                     name,
-                    Classify(name)));
+                    Classify(name))
+                {
+                    IsBluetooth = IsBluetoothDevice(deviceId, name),
+                });
             }
 
             return devices;
@@ -779,6 +785,58 @@ internal sealed class MacAudioService : IAudioService
             {
                 CFRelease(cfString);
             }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(data);
+        }
+    }
+
+    private static bool IsBluetoothDevice(uint deviceId, string name)
+    {
+        if (AudioOutputDevice.LooksLikeBluetooth(name))
+        {
+            return true;
+        }
+
+        var address = new AudioObjectPropertyAddress(
+            PropertyTransportType,
+            ScopeGlobal,
+            ElementMain);
+
+        if (!AudioObjectHasProperty(deviceId, ref address))
+        {
+            return false;
+        }
+
+        if (AudioObjectGetPropertyDataSize(
+                deviceId,
+                ref address,
+                0,
+                IntPtr.Zero,
+                out var dataSize) != 0
+            || dataSize < sizeof(uint))
+        {
+            return false;
+        }
+
+        var data = Marshal.AllocHGlobal(sizeof(uint));
+        try
+        {
+            var ioDataSize = (uint)sizeof(uint);
+            if (AudioObjectGetPropertyData(
+                    deviceId,
+                    ref address,
+                    0,
+                    IntPtr.Zero,
+                    ref ioDataSize,
+                    data) != 0)
+            {
+                return false;
+            }
+
+            var transportType = unchecked((uint)Marshal.ReadInt32(data));
+            return transportType is TransportBluetooth or TransportBluetoothLe;
         }
         finally
         {

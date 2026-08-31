@@ -99,6 +99,78 @@
                 </StackPanel>
             </Border>
 
+            <Border Background="#171D2A" BorderBrush="#303A50" BorderThickness="1" CornerRadius="14" Padding="18">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="預設裝置" Foreground="#DCE3F1" FontWeight="SemiBold" />
+                            <TextBlock Text="指定一鍵切換時使用的四種目標；藍牙可分別指定喇叭或耳機。"
+                                       Classes="muted"
+                                       FontSize="11"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1"
+                                   Text="可選任一輸出"
+                                   Classes="muted"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                            <TextBlock Text="預設喇叭" Classes="muted" />
+                            <ComboBox ItemsSource="{Binding Devices}"
+                                      SelectedItem="{Binding SelectedSpeakerDevice, Mode=TwoWay}"
+                                      MinHeight="34">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:AudioOutputDevice">
+                                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                            <TextBlock Text="預設耳機" Classes="muted" />
+                            <ComboBox ItemsSource="{Binding Devices}"
+                                      SelectedItem="{Binding SelectedHeadphonesDevice, Mode=TwoWay}"
+                                      MinHeight="34">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:AudioOutputDevice">
+                                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4">
+                            <TextBlock Text="預設藍牙喇叭" Classes="muted" />
+                            <ComboBox ItemsSource="{Binding Devices}"
+                                      SelectedItem="{Binding SelectedBluetoothSpeakerDevice, Mode=TwoWay}"
+                                      MinHeight="34">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:AudioOutputDevice">
+                                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <TextBlock Text="預設藍牙耳機" Classes="muted" />
+                            <ComboBox ItemsSource="{Binding Devices}"
+                                      SelectedItem="{Binding SelectedBluetoothHeadphonesDevice, Mode=TwoWay}"
+                                      MinHeight="34">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:AudioOutputDevice">
+                                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <Border Background="#161B25" CornerRadius="14" Padding="18">
                 <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
                     <TextBlock Grid.Row="0" Grid.Column="0"
@@ -118,7 +190,10 @@
             </Border>
 
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="可用輸出裝置" Classes="muted" VerticalAlignment="Center" />
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="可用輸出裝置" Classes="muted" />
+                    <TextBlock Text="藍牙可為喇叭或耳機" Classes="muted" FontSize="11" />
+                </StackPanel>
                 <Button Grid.Column="1"
                         Classes="ghost"
                         Command="{Binding RefreshCommand}"
@@ -130,7 +205,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:AudioOutputDevice">
                         <Border Background="#181E2A" CornerRadius="12" Padding="14" Margin="0,0,0,8">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                                 <TextBlock Text="{Binding Icon}"
                                            FontSize="20"
                                            Foreground="#A99FFF"
@@ -142,7 +217,14 @@
                                                TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding KindLabel}" Classes="muted" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="2"
+                                <CheckBox Grid.Column="2"
+                                          Content="藍牙"
+                                          IsChecked="{Binding IsBluetooth, Mode=TwoWay}"
+                                          ToolTip.Tip="藍牙裝置可以是喇叭，也可以是耳機"
+                                          Foreground="#9CA7BA"
+                                          VerticalAlignment="Center"
+                                          Margin="8,0,12,0" />
+                                <TextBlock Grid.Column="3"
                                            Text="{Binding Id}"
                                            Classes="muted"
                                            FontSize="11"
