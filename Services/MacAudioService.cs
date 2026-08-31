@@ -11,7 +11,6 @@ namespace SpeakerHeadphoneSwitch.Services;
 /// </summary>
 internal sealed class MacAudioService : IAudioService
 {
-    private const string DebugLogPath = "/tmp/SpeakerHeadphoneSwitch-audio.log";
     private const int DeviceSwitchRetryCount = 20;
     private const int VolumeSetRetryCount = 8;
     private const int VolumeTolerancePercent = 1;
@@ -47,7 +46,6 @@ internal sealed class MacAudioService : IAudioService
         var current = devices.FirstOrDefault(device => device.Id == currentId.ToString(CultureInfo.InvariantCulture));
         var volume = ReadVolume(currentId);
         var isMuted = ReadMute(currentId);
-        DebugLog($"snapshot current={currentId} volume={volume} muted={isMuted} devices={string.Join(",", devices.Select(device => $"{device.Id}:{device.Name}"))}");
 
         return Task.FromResult(new AudioSnapshot(devices, current, volume, isMuted));
     }
@@ -294,7 +292,6 @@ internal sealed class MacAudioService : IAudioService
         var targetPercent = Math.Clamp(percent, 0, 100);
         var actualPercent = ReadVolume(deviceId);
         var actualMuted = ReadMute(deviceId);
-        DebugLog($"set-volume begin device={deviceId} target={targetPercent} actual={actualPercent} muted={actualMuted}");
 
         for (var attempt = 0; attempt < VolumeSetRetryCount; attempt++)
         {
@@ -314,7 +311,6 @@ internal sealed class MacAudioService : IAudioService
             await Task.Delay(VolumeReadbackDelay, cancellationToken);
             actualPercent = ReadVolume(deviceId);
             actualMuted = ReadMute(deviceId);
-            DebugLog($"set-volume attempt={attempt + 1} device={deviceId} actual={actualPercent} muted={actualMuted}");
 
             if (IsRequestedVolume(actualPercent, actualMuted, targetPercent))
             {
@@ -324,7 +320,6 @@ internal sealed class MacAudioService : IAudioService
                 await Task.Delay(StableVolumeDelay, cancellationToken);
                 actualPercent = ReadVolume(deviceId);
                 actualMuted = ReadMute(deviceId);
-                DebugLog($"set-volume stable device={deviceId} actual={actualPercent} muted={actualMuted}");
                 if (IsRequestedVolume(actualPercent, actualMuted, targetPercent))
                 {
                     return;
@@ -339,20 +334,6 @@ internal sealed class MacAudioService : IAudioService
 
         throw new AudioServiceException(
             $"macOS 音量未能調整至 {targetPercent}%（目前讀回 {actualPercent}%{(actualMuted ? "，仍為靜音" : string.Empty)}）。");
-    }
-
-    private static void DebugLog(string message)
-    {
-        try
-        {
-            File.AppendAllText(
-                DebugLogPath,
-                $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // Diagnostics must never interfere with audio switching.
-        }
     }
 
     private static bool IsRequestedVolume(int actualPercent, bool actualMuted, int targetPercent)
