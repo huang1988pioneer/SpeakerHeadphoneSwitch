@@ -6,6 +6,10 @@
 	<string>聲音快捷切換</string>
 	<key>CFBundleExecutable</key>
 	<string>SpeakerHeadphoneSwitch</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.speakerheadphoneswitch.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>

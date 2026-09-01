@@ -8,7 +8,7 @@ namespace SpeakerHeadphoneSwitch.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private const int TargetVolume = 33;
+    private const decimal DefaultTargetVolume = 33m;
 
     private readonly IAudioService _audioService;
     private readonly Dictionary<string, bool> _bluetoothOverrides = new(StringComparer.Ordinal);
@@ -118,6 +118,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _currentDeviceName = "讀取中…";
 
     [ObservableProperty]
+    private string _currentDeviceIcon = "/Assets/icons/output.png";
+
+    [ObservableProperty]
     private string _currentDeviceType = "輸出裝置";
 
     [ObservableProperty]
@@ -125,6 +128,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _targetDeviceName = "耳機";
+
+    [ObservableProperty]
+    private string _targetDeviceIcon = "/Assets/icons/headphones.png";
 
     [ObservableProperty]
     private string _targetDeviceType = "耳機";
@@ -140,6 +146,23 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isError;
+
+    [ObservableProperty]
+    private decimal _targetVolume = DefaultTargetVolume;
+
+    public int TargetVolumePercent => NormalizeTargetVolume(TargetVolume);
+
+    public string TargetVolumeLabel => $"預設音量 {TargetVolumePercent}%";
+
+    public string WorkflowDescription =>
+        $"必要時解除靜音  →  音量 0  →  切換  →  解除靜音  →  音量 {TargetVolumePercent}";
+
+    partial void OnTargetVolumeChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(TargetVolumePercent));
+        OnPropertyChanged(nameof(TargetVolumeLabel));
+        OnPropertyChanged(nameof(WorkflowDescription));
+    }
 
     [RelayCommand]
     private async Task RefreshAsync()
@@ -169,6 +192,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         var target = _targetDevice;
+        var targetVolume = TargetVolumePercent;
         IsBusy = true;
         IsError = false;
         StatusDetail = "";
@@ -195,8 +219,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 await _audioService.SetDeviceMuteStateAsync(target, false);
             }
 
-            StatusText = $"第四步：將{target.KindLabel}音量調整至 33…";
-            await _audioService.SetDeviceVolumeAsync(target, TargetVolume);
+            StatusText = $"第四步：將{target.KindLabel}音量調整至 {targetVolume}…";
+            await _audioService.SetDeviceVolumeAsync(target, targetVolume);
             // Re-apply unmute after the volume write as well. Some macOS
             // devices restore their saved mute bit after the first property
             // update, so the final state must be explicitly audible.
@@ -211,7 +235,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 verifiedSnapshot = await _audioService.GetSnapshotAsync();
                 if (verifiedSnapshot.CurrentDevice?.Id == target.Id
-                    && Math.Abs(verifiedSnapshot.VolumePercent - TargetVolume) <= 1
+                    && Math.Abs(verifiedSnapshot.VolumePercent - targetVolume) <= 1
                     && !verifiedSnapshot.IsMuted)
                 {
                     break;
@@ -220,22 +244,22 @@ public partial class MainWindowViewModel : ViewModelBase
                 if (attempt + 1 < 3)
                 {
                     await _audioService.SetDeviceMuteStateAsync(target, false);
-                    await _audioService.SetDeviceVolumeAsync(target, TargetVolume);
+                    await _audioService.SetDeviceVolumeAsync(target, targetVolume);
                     await Task.Delay(150);
                 }
             }
 
             if (verifiedSnapshot is null
                 || verifiedSnapshot.CurrentDevice?.Id != target.Id
-                || Math.Abs(verifiedSnapshot.VolumePercent - TargetVolume) > 1
+                || Math.Abs(verifiedSnapshot.VolumePercent - targetVolume) > 1
                 || verifiedSnapshot.IsMuted)
             {
                 var observedVolume = verifiedSnapshot?.VolumePercent.ToString() ?? "未知";
                 throw new AudioServiceException(
-                    $"切換後音量驗證失敗：目前為 {observedVolume}%（預期 33%）。");
+                    $"切換後音量驗證失敗：目前為 {observedVolume}%（預期 {targetVolume}%）。");
             }
 
-            StatusText = $"切換完成：{target.KindLabel}，音量 33%";
+            StatusText = $"切換完成：{target.KindLabel}，音量 {targetVolume}%";
             await RefreshSnapshotAsync(showLoading: false);
             StatusText = $"切換完成：{CurrentDeviceType}，音量 {CurrentVolumeText}";
         }
@@ -251,6 +275,13 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             IsBusy = false;
         }
+    }
+
+    private static int NormalizeTargetVolume(decimal value)
+    {
+        return (int)Math.Round(
+            Math.Clamp(value, 0m, 100m),
+            MidpointRounding.AwayFromZero);
     }
 
     private bool CanToggleOutput() => !IsBusy && HasSwitchTarget;
@@ -287,6 +318,7 @@ public partial class MainWindowViewModel : ViewModelBase
             RestoreRoleSelections(snapshot.Devices);
 
             CurrentDeviceName = snapshot.CurrentDevice?.DisplayName ?? "找不到目前輸出裝置";
+            CurrentDeviceIcon = snapshot.CurrentDevice?.Icon ?? AudioOutputDevice.IconFor(AudioOutputKind.Unknown);
             CurrentDeviceType = snapshot.CurrentDevice?.KindLabel ?? "未辨識";
             CurrentVolumeText = snapshot.IsMuted
                 ? $"靜音 · {snapshot.VolumePercent}%"
@@ -299,6 +331,7 @@ public partial class MainWindowViewModel : ViewModelBase
             HasSwitchTarget = false;
             IsError = true;
             CurrentDeviceName = "無法讀取音訊裝置";
+            CurrentDeviceIcon = AudioOutputDevice.IconFor(AudioOutputKind.Unknown);
             CurrentDeviceType = "—";
             CurrentVolumeText = "—";
             StatusText = "無法連線到系統音訊服務";
@@ -384,6 +417,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             HasSwitchTarget = false;
             TargetDeviceName = "沒有可切換裝置";
+            TargetDeviceIcon = AudioOutputDevice.IconFor(AudioOutputKind.Unknown);
             TargetDeviceType = "—";
             ActionButtonText = "沒有可切換裝置";
             if (showLoading)
@@ -397,12 +431,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
         HasSwitchTarget = true;
         TargetDeviceName = _targetDevice.DisplayName;
+        TargetDeviceIcon = _targetDevice.Icon;
         TargetDeviceType = _targetDevice.KindLabel;
         ActionButtonText = $"一鍵切換至{_targetDevice.KindLabel}";
         if (showLoading)
         {
             StatusText = $"準備就緒：可切換至{_targetDevice.KindLabel}";
-            StatusDetail = "必要時先解除靜音，再依序執行：音量 0 → 切換輸出 → 解除目標靜音 → 音量 33。";
+            StatusDetail = $"必要時先解除靜音，再依序執行：音量 0 → 切換輸出 → 解除目標靜音 → 音量 {TargetVolumePercent}。";
         }
     }
 

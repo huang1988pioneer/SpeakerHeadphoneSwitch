@@ -35,7 +35,14 @@ public sealed record AudioOutputDevice(
         _ => "其他輸出",
     };
 
-    public string Icon => Kind == AudioOutputKind.Headphones ? "♬" : "◉";
+    public string Icon => IconFor(Kind);
+
+    public static string IconFor(AudioOutputKind kind) => kind switch
+    {
+        AudioOutputKind.Headphones => "/Assets/icons/headphones.png",
+        AudioOutputKind.Speakers => "/Assets/icons/speaker.png",
+        _ => "/Assets/icons/output.png",
+    };
 
     public static bool LooksLikeBluetooth(string value)
     {
