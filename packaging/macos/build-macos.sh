@@ -24,11 +24,14 @@ if [[ ! -x "$DOTNET" ]]; then
 fi
 
 OUT="$ROOT/dist/macos"
-PUBLISH_DIR="$OUT/publish-$RID"
+# 發佈輸出只是中繼檔；直接在 Finder 點兩下裡面的 Unix 執行檔會開出終端機視窗，所以放在暫存目錄。
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+PUBLISH_DIR="$WORK_DIR/publish"
 APP_DIR="$OUT/$APP_NAME.app"
 DMG_PATH="$OUT/$APP_NAME-$VERSION-$RID.dmg"
 
-rm -rf "$PUBLISH_DIR" "$APP_DIR" "$DMG_PATH"
+rm -rf "$OUT"/publish-* "$APP_DIR" "$DMG_PATH"
 mkdir -p "$OUT"
 
 echo "== dotnet publish ($RID) =="
@@ -60,8 +63,8 @@ codesign --force --deep --sign "${CODESIGN_IDENTITY:--}" "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 
 echo "== 產生 DMG =="
-STAGING="$(mktemp -d)"
-trap 'rm -rf "$STAGING"' EXIT
+STAGING="$WORK_DIR/staging"
+mkdir -p "$STAGING"
 cp -R "$APP_DIR" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 hdiutil create \
