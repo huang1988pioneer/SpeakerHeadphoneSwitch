@@ -131,6 +131,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
 
             var plan = planResult.Plan;
+            var note = planResult.Note;
 
             SetStatus(
                 "步驟 1 / 3",
@@ -194,7 +195,7 @@ public partial class MainWindowViewModel : ObservableObject
             Refresh();
             SetStatus(
                 "切換完成",
-                $"目前輸出為「{plan.Target.Name}」，{_audio.SystemName} 裝置音量已確認為 50%。",
+                $"目前輸出為「{plan.Target.Name}」，{_audio.SystemName} 裝置音量已確認為 50%。{note}",
                 SuccessBrush);
         }
         catch (Exception ex)
@@ -279,18 +280,29 @@ public partial class MainWindowViewModel : ObservableObject
                 $"找不到目前的預設輸出裝置，請先確認 {_audio.SystemName} 音訊輸出設定。");
         }
 
-        var targetKind = current.Kind == DeviceKind.Headphone
+        var targetKind = Classify(current).Kind == DeviceKind.Headphone
             ? DeviceKind.Speaker
             : DeviceKind.Headphone;
         // 流程最後必須把目標音量確認為 50%，沒有可讀音量的裝置（例如 HDMI 螢幕）一定會失敗，不列入目標。
         var candidates = _audio.GetActiveOutputDevices()
             .Where(d => d.Id != current.Id && _audio.TryGetEndpointVolumePercent(d.Id) is not null)
             .ToList();
-        // 依勾選決定藍牙或有線優先；偏好的連線方式不存在時退回同種類裝置，再退回任一輸出裝置。
         var wantBluetooth = WantsBluetooth(targetKind);
-        var target = candidates.FirstOrDefault(d => d.Kind == targetKind && d.IsBluetooth == wantBluetooth)
-                     ?? candidates.FirstOrDefault(d => d.Kind == targetKind)
-                     ?? candidates.FirstOrDefault();
+        var note = string.Empty;
+
+        // 設定中指定的裝置優先；未指定或目前無法使用時，才依勾選自動選擇：
+        // 同種類且連線方式相符 → 同種類 → 任一輸出裝置。
+        AudioDevice? target = null;
+        if (_settings.GetAssignment(targetKind, wantBluetooth) is { } assigned)
+        {
+            target = candidates.FirstOrDefault(d => d.Id == assigned.Id);
+            if (target is null)
+                note = $"（指定的{AppSettings.SlotName(targetKind, wantBluetooth)}「{assigned.Name}」目前無法使用，已改用自動選擇。）";
+        }
+
+        target ??= candidates.FirstOrDefault(d => Classify(d) == (targetKind, wantBluetooth))
+                   ?? candidates.FirstOrDefault(d => Classify(d).Kind == targetKind)
+                   ?? candidates.FirstOrDefault();
 
         if (target is null)
         {
@@ -304,7 +316,8 @@ public partial class MainWindowViewModel : ObservableObject
                              ?? _audio.TryGetVolumePercent(current.Id);
         return new SwitchPlanResult(
             new SwitchPlan(current, target, previousVolume),
-            string.Empty);
+            string.Empty,
+            note);
     }
 
     private bool TrySetEndpointVolumeAndVerify(string deviceId, float expectedPercent)
@@ -392,7 +405,8 @@ public partial class MainWindowViewModel : ObservableObject
 
         HasCurrentDevice = true;
         CurrentDeviceName = current.Name;
-        CurrentKindText = (current.Kind, current.IsBluetooth) switch
+        var (currentKind, currentBluetooth) = Classify(current);
+        CurrentKindText = (currentKind, currentBluetooth) switch
         {
             (DeviceKind.Headphone, true) => "藍牙耳機輸出",
             (DeviceKind.Headphone, false) => "耳機輸出",
@@ -405,12 +419,12 @@ public partial class MainWindowViewModel : ObservableObject
             ? $"{volume:0}%"
             : "無法讀取";
 
-        IsHeadphone = current.Kind == DeviceKind.Headphone;
-        IsSpeaker = current.Kind == DeviceKind.Speaker;
-        IsOtherOutput = current.Kind == DeviceKind.Unknown;
+        IsHeadphone = currentKind == DeviceKind.Headphone;
+        IsSpeaker = currentKind == DeviceKind.Speaker;
+        IsOtherOutput = currentKind == DeviceKind.Unknown;
         IsTargetSpeaker = IsHeadphone;
         IsTargetHeadphone = IsSpeaker;
-        UpdateTargetText(current.Kind);
+        UpdateTargetText(currentKind);
         return true;
     }
 
@@ -438,16 +452,48 @@ public partial class MainWindowViewModel : ObservableObject
         _ => false,
     };
 
+    /// <summary>設定中指定的目標優先於自動偵測的種類與連線方式。</summary>
+    private (DeviceKind Kind, bool Bluetooth) Classify(AudioDevice device) =>
+        _settings.FindAssignedSlot(device.Id) ?? (device.Kind, device.IsBluetooth);
+
     private void UpdateTargetText(DeviceKind currentKind)
     {
-        var targetName = currentKind switch
+        DeviceKind? targetKind = currentKind switch
         {
-            DeviceKind.Headphone => UseBluetoothSpeaker ? "藍牙喇叭" : "喇叭",
-            DeviceKind.Speaker => UseBluetoothHeadphone ? "藍牙耳機" : "耳機",
+            DeviceKind.Headphone => DeviceKind.Speaker,
+            DeviceKind.Speaker => DeviceKind.Headphone,
             _ => null,
         };
-        TargetKindText = targetName is null ? "目標：下一個輸出裝置" : $"目標：{targetName}";
-        ToggleButtonText = targetName is null ? "切換輸出裝置" : $"切換至{targetName}";
+        if (targetKind is not DeviceKind kind)
+        {
+            TargetKindText = "目標：下一個輸出裝置";
+            ToggleButtonText = "切換輸出裝置";
+            return;
+        }
+
+        var bluetooth = WantsBluetooth(kind);
+        var slotName = AppSettings.SlotName(kind, bluetooth);
+        var assigned = _settings.GetAssignment(kind, bluetooth);
+        TargetKindText = assigned is null ? $"目標：{slotName}" : $"目標：{slotName} · {assigned.Name}";
+        ToggleButtonText = $"切換至{slotName}";
+    }
+
+    /// <summary>建立設定視窗使用的 ViewModel，與主視窗共用同一份設定。</summary>
+    public SettingsViewModel CreateSettingsViewModel() => new(_audio, _settings);
+
+    /// <summary>設定視窗儲存後重新讀取狀態，讓目前輸出種類與目標立即反映新的指定。</summary>
+    public void ApplySettings()
+    {
+        try
+        {
+            if (Refresh())
+                SetStatus("設定已儲存", "之後的切換會使用新的裝置指定。", InfoBrush);
+        }
+        catch (Exception ex)
+        {
+            SetNoDevice();
+            SetStatus("重新讀取失敗", GetExceptionMessage(ex), ErrorBrush);
+        }
     }
 
     private void SetStatus(string title, string detail, IBrush brush)
@@ -462,5 +508,5 @@ public partial class MainWindowViewModel : ObservableObject
 
     private sealed record SwitchPlan(AudioDevice Current, AudioDevice Target, float? PreviousVolume);
 
-    private sealed record SwitchPlanResult(SwitchPlan? Plan, string Error);
+    private sealed record SwitchPlanResult(SwitchPlan? Plan, string Error, string Note = "");
 }

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using SpeakerHeadphoneSwitch.Models;
 
 namespace SpeakerHeadphoneSwitch.Services;
 
@@ -21,6 +22,31 @@ public sealed class AppSettings
     /// <summary>切換至耳機時優先使用藍牙耳機。</summary>
     public bool UseBluetoothHeadphone { get; set; }
 
+    // 四種目標各自指定的裝置；null 表示自動選擇。
+    public DeviceAssignment? SpeakerDevice { get; set; }
+    public DeviceAssignment? HeadphoneDevice { get; set; }
+    public DeviceAssignment? BluetoothSpeakerDevice { get; set; }
+    public DeviceAssignment? BluetoothHeadphoneDevice { get; set; }
+
+    public DeviceAssignment? GetAssignment(DeviceKind kind, bool bluetooth) => (kind, bluetooth) switch
+    {
+        (DeviceKind.Speaker, false) => SpeakerDevice,
+        (DeviceKind.Speaker, true) => BluetoothSpeakerDevice,
+        (DeviceKind.Headphone, false) => HeadphoneDevice,
+        (DeviceKind.Headphone, true) => BluetoothHeadphoneDevice,
+        _ => null,
+    };
+
+    /// <summary>若裝置被指定到某個目標，回傳該目標的種類與是否為藍牙；否則回傳 null。</summary>
+    public (DeviceKind Kind, bool Bluetooth)? FindAssignedSlot(string deviceId)
+    {
+        if (SpeakerDevice?.Id == deviceId) return (DeviceKind.Speaker, false);
+        if (BluetoothSpeakerDevice?.Id == deviceId) return (DeviceKind.Speaker, true);
+        if (HeadphoneDevice?.Id == deviceId) return (DeviceKind.Headphone, false);
+        if (BluetoothHeadphoneDevice?.Id == deviceId) return (DeviceKind.Headphone, true);
+        return null;
+    }
+
     public static AppSettings Load()
     {
         try
@@ -36,6 +62,9 @@ public sealed class AppSettings
         return new AppSettings();
     }
 
+    public static string SlotName(DeviceKind kind, bool bluetooth) =>
+        (bluetooth ? "藍牙" : string.Empty) + (kind == DeviceKind.Speaker ? "喇叭" : "耳機");
+
     public void Save()
     {
         try
@@ -48,4 +77,11 @@ public sealed class AppSettings
             // 無法寫入時僅影響下次啟動的預設值。
         }
     }
+}
+
+/// <summary>指定給某個目標的裝置。保留名稱，裝置未連線時仍可在設定與訊息中顯示。</summary>
+public sealed class DeviceAssignment
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }
