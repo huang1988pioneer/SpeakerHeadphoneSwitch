@@ -40,31 +40,26 @@ public partial class SettingsViewModel : ObservableObject
     {
         _settings = settings;
 
-        var options = new List<DeviceOption> { AutoOption };
-        options.AddRange(audio.GetActiveOutputDevices().Select(device => new DeviceOption(
-            device.Id,
-            device.Name,
-            Describe(device, audio.TryGetEndpointVolumePercent(device.Id) is not null))));
+        // 藍牙目標只列藍牙裝置，喇叭／耳機只列非藍牙裝置。
+        var devices = audio.GetActiveOutputDevices();
+        var wired = BuildOptions(audio, devices.Where(device => !device.IsBluetooth),
+            settings.SpeakerDevice, settings.HeadphoneDevice);
+        var bluetooth = BuildOptions(audio, devices.Where(device => device.IsBluetooth),
+            settings.BluetoothSpeakerDevice, settings.BluetoothHeadphoneDevice);
 
-        // 已指定但目前未連線的裝置仍列出，避免開啟設定再儲存就把指定清掉。
-        foreach (var assigned in new[]
-                 {
-                     settings.SpeakerDevice, settings.HeadphoneDevice,
-                     settings.BluetoothSpeakerDevice, settings.BluetoothHeadphoneDevice,
-                 })
-        {
-            if (assigned is not null && options.All(option => option.Id != assigned.Id))
-                options.Add(new DeviceOption(assigned.Id, assigned.Name, "未連線"));
-        }
-
-        Options = options;
-        _speaker = Find(settings.SpeakerDevice);
-        _headphone = Find(settings.HeadphoneDevice);
-        _bluetoothSpeaker = Find(settings.BluetoothSpeakerDevice);
-        _bluetoothHeadphone = Find(settings.BluetoothHeadphoneDevice);
+        WiredOptions = wired;
+        BluetoothOptions = bluetooth;
+        _speaker = Find(wired, settings.SpeakerDevice);
+        _headphone = Find(wired, settings.HeadphoneDevice);
+        _bluetoothSpeaker = Find(bluetooth, settings.BluetoothSpeakerDevice);
+        _bluetoothHeadphone = Find(bluetooth, settings.BluetoothHeadphoneDevice);
     }
 
-    public IReadOnlyList<DeviceOption> Options { get; }
+    /// <summary>喇叭、耳機下拉選單：非藍牙裝置。</summary>
+    public IReadOnlyList<DeviceOption> WiredOptions { get; }
+
+    /// <summary>藍牙喇叭、藍牙耳機下拉選單：藍牙裝置。</summary>
+    public IReadOnlyList<DeviceOption> BluetoothOptions { get; }
 
     /// <summary>同一個裝置不能同時當喇叭又當耳機，否則無法判斷切換方向。</summary>
     public string ConflictText
@@ -76,7 +71,7 @@ public partial class SettingsViewModel : ObservableObject
             var conflict = speakerIds.Intersect(headphoneIds).FirstOrDefault();
             return conflict is null
                 ? string.Empty
-                : $"「{Options.First(option => option.Id == conflict).Name}」不能同時指定為喇叭與耳機。";
+                : $"「{WiredOptions.Concat(BluetoothOptions).First(option => option.Id == conflict).Name}」不能同時指定為喇叭與耳機。";
         }
     }
 
@@ -91,8 +86,27 @@ public partial class SettingsViewModel : ObservableObject
         _settings.Save();
     }
 
-    private DeviceOption Find(DeviceAssignment? assigned) =>
-        assigned is null ? AutoOption : Options.FirstOrDefault(option => option.Id == assigned.Id) ?? AutoOption;
+    private static List<DeviceOption> BuildOptions(
+        IAudioService audio, IEnumerable<AudioDevice> devices, params DeviceAssignment?[] assignments)
+    {
+        var options = new List<DeviceOption> { AutoOption };
+        options.AddRange(devices.Select(device => new DeviceOption(
+            device.Id,
+            device.Name,
+            Describe(device, audio.TryGetEndpointVolumePercent(device.Id) is not null))));
+
+        // 已指定但目前未連線的裝置仍列出，避免開啟設定再儲存就把指定清掉。
+        foreach (var assigned in assignments)
+        {
+            if (assigned is not null && options.All(option => option.Id != assigned.Id))
+                options.Add(new DeviceOption(assigned.Id, assigned.Name, "未連線"));
+        }
+
+        return options;
+    }
+
+    private static DeviceOption Find(IReadOnlyList<DeviceOption> options, DeviceAssignment? assigned) =>
+        assigned is null ? AutoOption : options.FirstOrDefault(option => option.Id == assigned.Id) ?? AutoOption;
 
     private static DeviceAssignment? ToAssignment(DeviceOption option) =>
         option.Id is null ? null : new DeviceAssignment { Id = option.Id, Name = option.Name };
@@ -105,7 +119,7 @@ public partial class SettingsViewModel : ObservableObject
             DeviceKind.Headphone => "耳機",
             _ => "其他",
         };
-        var parts = new List<string> { device.IsBluetooth ? $"藍牙{kind}" : kind };
+        var parts = new List<string> { kind };
         if (!hasVolume)
             parts.Add("無法調整音量");
         return string.Join(" · ", parts);

@@ -304,6 +304,10 @@ public partial class MainWindowViewModel : ObservableObject
                    ?? candidates.FirstOrDefault(d => Classify(d).Kind == targetKind)
                    ?? candidates.FirstOrDefault();
 
+        // 藍牙與非藍牙不互相替代而不告知：找不到想要的連線方式時，在完成訊息中說明實際使用的裝置。
+        if (target is not null && note.Length == 0 && Classify(target) != (targetKind, wantBluetooth))
+            note = $"（找不到可用的{AppSettings.SlotName(targetKind, wantBluetooth)}，改用「{target.Name}」。）";
+
         if (target is null)
         {
             return new SwitchPlanResult(
