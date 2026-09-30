@@ -91,6 +91,10 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(ToggleCommand))]
     private bool _hasCurrentDevice;
 
+    /// <summary>顯示在視窗底部的版本號，方便確認執行的是哪一版。</summary>
+    public string VersionText { get; } =
+        $"v{typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "?"}";
+
     public MainWindowViewModel()
     {
         // 直接寫入欄位，避免啟動時觸發儲存。

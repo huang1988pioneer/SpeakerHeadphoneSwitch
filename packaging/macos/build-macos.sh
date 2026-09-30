@@ -7,7 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 APP_NAME="SpeakerHeadphoneSwitch"
 DISPLAY_NAME="音訊快速切換"
-VERSION="${VERSION:-1.0.0}"
+# 版本號以 csproj 的 <Version> 為準，可用 VERSION 環境變數覆寫。
+VERSION="${VERSION:-$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$ROOT/$APP_NAME.csproj")}"
 
 if [[ $# -ge 1 ]]; then
     RID="$1"

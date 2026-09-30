@@ -352,7 +352,7 @@
                 </Grid>
             </Border>
 
-            <TextBlock Text="系統音訊輸出 · Enter 鍵也可執行切換"
+            <TextBlock Text="{Binding VersionText, StringFormat='系統音訊輸出 · Enter 鍵也可執行切換 · {0}'}"
                        FontSize="12"
                        Foreground="{DynamicResource TextMutedBrush}"
                        HorizontalAlignment="Center" />
