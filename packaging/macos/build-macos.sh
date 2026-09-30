@@ -31,6 +31,9 @@ PUBLISH_DIR="$WORK_DIR/publish"
 APP_DIR="$OUT/$APP_NAME.app"
 DMG_PATH="$OUT/$APP_NAME-$VERSION-$RID.dmg"
 
+# LaunchServices 以路徑快取 App 圖示；同一路徑重建時先取消登記，避免 Finder 沿用舊的（無圖示）快取。
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+[[ -d "$APP_DIR" ]] && "$LSREGISTER" -u "$APP_DIR" 2>/dev/null || true
 rm -rf "$OUT"/publish-* "$APP_DIR" "$DMG_PATH"
 mkdir -p "$OUT"
 
@@ -61,6 +64,7 @@ echo "== ad-hoc 簽章 =="
 # Apple Silicon 必須簽章才能執行；沒有 Developer ID 時使用 ad-hoc 簽章。
 codesign --force --deep --sign "${CODESIGN_IDENTITY:--}" "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
+"$LSREGISTER" -f "$APP_DIR" 2>/dev/null || true
 
 echo "== 產生 DMG =="
 STAGING="$WORK_DIR/staging"
