@@ -12,6 +12,9 @@ internal static class Program
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
         .UsePlatformDetect()
-        .With(new FontManagerOptions { DefaultFamilyName = "Microsoft YaHei UI" })
+        .With(new FontManagerOptions
+        {
+            DefaultFamilyName = OperatingSystem.IsMacOS() ? "PingFang TC" : "Microsoft YaHei UI",
+        })
         .LogToTrace();
 }

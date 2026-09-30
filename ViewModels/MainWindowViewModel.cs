@@ -19,7 +19,7 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>切換之前將目前裝置音量歸零(%)。</summary>
     private const float OffVolumePercent = 0f;
 
-    // Windows 切換端點後，驅動可能需要短暫時間才接受音量寫入；所有重試都有固定上限。
+    // 系統切換端點後，驅動可能需要短暫時間才接受音量寫入；所有重試都有固定上限。
     private const int EndpointVolumeAttempts = 8;
     private const int EndpointVolumeRetryDelayMilliseconds = 40;
     private const int DefaultDeviceAttempts = 20;
@@ -32,7 +32,7 @@ public partial class MainWindowViewModel : ObservableObject
     private static readonly IBrush WarningBrush = new SolidColorBrush(Color.Parse("#FFCF70"));
     private static readonly IBrush ErrorBrush = new SolidColorBrush(Color.Parse("#FF8C8C"));
 
-    private readonly WindowsAudioService _audio = new();
+    private readonly IAudioService _audio = AudioServiceFactory.Create();
 
     [ObservableProperty]
     private string _currentDeviceName = "讀取中…";
@@ -53,7 +53,7 @@ public partial class MainWindowViewModel : ObservableObject
     private string _statusTitle = "正在讀取";
 
     [ObservableProperty]
-    private string _statusText = "正在讀取目前的 Windows 輸出裝置…";
+    private string _statusText = "正在讀取目前的輸出裝置…";
 
     [ObservableProperty]
     private IBrush _statusBrush = InfoBrush;
@@ -121,9 +121,9 @@ public partial class MainWindowViewModel : ObservableObject
 
             SetStatus(
                 "步驟 1 / 3",
-                $"先將「{plan.Current.Name}」端點音量降至 0%，避免切換瞬間爆音。",
+                $"先將「{plan.Current.Name}」裝置音量降至 0%，避免切換瞬間爆音。",
                 AccentBrush);
-            // 切換流程禁止使用 session fallback：只有端點主音量才等同 Windows 音量滑桿。
+            // 切換流程禁止使用 session fallback：只有端點主音量才等同系統音量滑桿。
             var currentVolumeSet = await Task.Run(
                 () => TrySetEndpointVolumeAndVerify(plan.Current.Id, OffVolumePercent));
 
@@ -132,7 +132,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 SetStatus(
                     "切換已停止",
-                    "無法將目前裝置的 Windows 端點音量確認為 0%，為避免爆音，這次未切換輸出裝置。",
+                    $"無法將目前裝置的 {_audio.SystemName} 裝置音量確認為 0%，為避免爆音，這次未切換輸出裝置。",
                     ErrorBrush);
                 return;
             }
@@ -147,7 +147,7 @@ public partial class MainWindowViewModel : ObservableObject
                     Refresh();
                     SetStatus(
                         "切換失敗",
-                        $"Windows 未能確認目前輸出已切換至「{plan.Target.Name}」，已嘗試恢復原本設定。",
+                        $"{_audio.SystemName} 未能確認目前輸出已切換至「{plan.Target.Name}」，已嘗試恢復原本設定。",
                         ErrorBrush);
                     return;
                 }
@@ -163,7 +163,7 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」端點音量設為 50%…", AccentBrush);
+            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」裝置音量設為 50%…", AccentBrush);
             var targetVolumeSet = await Task.Run(
                 () => TrySetEndpointVolumeAndVerify(plan.Target.Id, DefaultVolumePercent));
 
@@ -173,7 +173,7 @@ public partial class MainWindowViewModel : ObservableObject
                 Refresh();
                 SetStatus(
                     "切換已回復",
-                    $"無法將「{plan.Target.Name}」的 Windows 端點音量確認為 50%，已嘗試恢復原本設定。",
+                    $"無法將「{plan.Target.Name}」的 {_audio.SystemName} 裝置音量確認為 50%，已嘗試恢復原本設定。",
                     ErrorBrush);
                 return;
             }
@@ -181,7 +181,7 @@ public partial class MainWindowViewModel : ObservableObject
             Refresh();
             SetStatus(
                 "切換完成",
-                $"目前輸出為「{plan.Target.Name}」，Windows 端點音量已確認為 50%。",
+                $"目前輸出為「{plan.Target.Name}」，{_audio.SystemName} 裝置音量已確認為 50%。",
                 SuccessBrush);
         }
         catch (Exception ex)
@@ -218,7 +218,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 SetStatus(
                     "找不到輸出裝置",
-                    "請確認 Windows 已連接或啟用輸出裝置，再重新讀取。",
+                    $"請確認 {_audio.SystemName} 已連接或啟用輸出裝置，再重新讀取。",
                     WarningBrush);
             }
         }
@@ -240,24 +240,27 @@ public partial class MainWindowViewModel : ObservableObject
         {
             return new SwitchPlanResult(
                 null,
-                "找不到目前的預設輸出裝置，請先確認 Windows 音訊輸出設定。");
+                $"找不到目前的預設輸出裝置，請先確認 {_audio.SystemName} 音訊輸出設定。");
         }
 
         var targetKind = current.Kind == DeviceKind.Headphone
             ? DeviceKind.Speaker
             : DeviceKind.Headphone;
-        var devices = _audio.GetActiveOutputDevices();
-        var target = devices.FirstOrDefault(d => d.Id != current.Id && d.Kind == targetKind)
-                     ?? devices.FirstOrDefault(d => d.Id != current.Id);
+        // 流程最後必須把目標音量確認為 50%，沒有可讀音量的裝置（例如 HDMI 螢幕）一定會失敗，不列入目標。
+        var candidates = _audio.GetActiveOutputDevices()
+            .Where(d => d.Id != current.Id && _audio.TryGetEndpointVolumePercent(d.Id) is not null)
+            .ToList();
+        var target = candidates.FirstOrDefault(d => d.Kind == targetKind)
+                     ?? candidates.FirstOrDefault();
 
         if (target is null)
         {
             return new SwitchPlanResult(
                 null,
-                "找不到另一個可切換的輸出裝置，請確認喇叭與耳機都已啟用。");
+                "找不到另一個可調整音量的輸出裝置，請確認喇叭與耳機都已啟用。");
         }
 
-        // 只把端點音量當成切換前狀態；session 音量不能代表 Windows 裝置滑桿。
+        // 只把端點音量當成切換前狀態；session 音量不能代表系統裝置滑桿。
         var previousVolume = _audio.TryGetEndpointVolumePercent(current.Id)
                              ?? _audio.TryGetVolumePercent(current.Id);
         return new SwitchPlanResult(
@@ -356,7 +359,7 @@ public partial class MainWindowViewModel : ObservableObject
             DeviceKind.Speaker => "喇叭輸出",
             _ => "其他輸出",
         };
-        // 顯示值也只讀端點主音量，避免把 session 音量誤顯示成 Windows 裝置音量。
+        // 顯示值也只讀端點主音量，避免把 session 音量誤顯示成系統裝置音量。
         CurrentVolumeText = _audio.TryGetEndpointVolumePercent(current.Id) is float volume
             ? $"{volume:0}%"
             : "無法讀取";

@@ -1,6 +1,6 @@
 # SpeakerHeadphoneSwitch（喇叭／耳機切換器）
 
-以 Avalonia UI 製作的 Windows 桌面工具：按一下按鈕，在喇叭與耳機之間安全切換預設輸出裝置。
+以 Avalonia UI 製作的 Windows／macOS 桌面工具：按一下按鈕，在喇叭與耳機之間安全切換預設輸出裝置。
 
 ## 功能
 
@@ -16,10 +16,23 @@
 
 ```bash
 dotnet build -c Debug
-bin\Debug\net8.0-windows\SpeakerHeadphoneSwitch.exe
+bin\Debug\net8.0\SpeakerHeadphoneSwitch.exe
 ```
 
 需要 Windows 10/11 與 .NET 8 SDK（僅建置時需要）。
+
+### macOS 版與安裝包
+
+```bash
+packaging/macos/build-macos.sh
+```
+
+需要 macOS 12 以上與 .NET 8 SDK（僅建置時需要）。腳本會以自帶執行階段發佈，組成
+`dist/macos/SpeakerHeadphoneSwitch.app`、以 ad-hoc 簽章，並產生可拖曳安裝的
+`dist/macos/SpeakerHeadphoneSwitch-<版本>-<RID>.dmg`。預設依本機架構建置，也可指定
+`osx-arm64` 或 `osx-x64`；`VERSION`、`CODESIGN_IDENTITY` 環境變數可覆寫版本與簽章身分。
+
+ad-hoc 簽章未經 Apple 公證；從其他電腦下載的 DMG 第一次開啟時，請在 Finder 中按右鍵 →「打開」。
 
 ## 技術架構
 
@@ -29,7 +42,11 @@ bin\Debug\net8.0-windows\SpeakerHeadphoneSwitch.exe
   （Console / Multimedia / Communications）一起設定。
 - **裝置音量**：使用 `IAudioEndpointVolume` 的端點主音量，這才是 Windows 設定中的裝置音量滑桿。
   切換流程不以工作階段（session）音量冒充端點音量；端點 API 不可用或讀回值不符時會明確回報失敗。
-- **裝置分類**：先看 `PKEY_AudioEndpoint_FormFactor`（Headphones/Headset → 耳機、Speakers → 喇叭），
+- **macOS**：`MacAudioService` 以 CoreAudio HAL 列舉輸出裝置並切換 `kAudioHardwarePropertyDefaultOutputDevice`
+  （同時設定系統提示音裝置）；音量優先使用 `VirtualMainVolume`（與選單列音量滑桿相同），
+  不支援時退回主聲道或左右聲道的 `VolumeScalar`。沒有音量控制的裝置（例如 HDMI 螢幕）不會被選為切換目標。
+  分類依名稱、內建輸出的資料來源（耳機孔／內建揚聲器）與傳輸方式（藍牙視為耳機）。
+- **Windows 裝置分類**：先看 `PKEY_AudioEndpoint_FormFactor`（Headphones/Headset → 耳機、Speakers → 喇叭），
   再以名稱關鍵字（耳機/headphone/headset、喇叭/speaker）後備判斷。
 
 ### 切換時間與驗證

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using SpeakerHeadphoneSwitch.Models;
 
 namespace SpeakerHeadphoneSwitch.Services;
@@ -8,7 +9,8 @@ namespace SpeakerHeadphoneSwitch.Services;
 /// <summary>
 /// 以 Windows Core Audio API 實作：列舉／查詢輸出裝置、設定裝置音量、切換預設輸出裝置。
 /// </summary>
-public sealed class WindowsAudioService
+[SupportedOSPlatform("windows")]
+public sealed class WindowsAudioService : IAudioService
 {
     private const int ClsCtxAll = 0x17;
     private const int DeviceStateActive = 0x1;
@@ -18,6 +20,8 @@ public sealed class WindowsAudioService
     // IID_IAudioEndpointVolume（endpointvolume.h）。這個 GUID 對應 Windows 音量滑桿。
     private static readonly Guid AudioEndpointVolumeIid = new("5CDF2C82-841E-4546-9722-0CF74078229A");
     private static readonly Guid AudioSessionManager2Iid = new("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F");
+
+    public string SystemName => "Windows";
 
     /// <summary>取得目前的預設輸出裝置（多媒體角色）。</summary>
     public AudioDevice? GetDefaultOutputDevice()
@@ -291,14 +295,6 @@ public sealed class WindowsAudioService
                 return DeviceKind.Speaker;
         }
 
-        var lower = name.ToLowerInvariant();
-        if (lower.Contains("headphone") || lower.Contains("headset") || lower.Contains("earphone")
-            || lower.Contains("airpods") || name.Contains("耳機"))
-            return DeviceKind.Headphone;
-
-        if (lower.Contains("speaker") || name.Contains("喇叭"))
-            return DeviceKind.Speaker;
-
-        return DeviceKind.Unknown;
+        return DeviceNameClassifier.Classify(name);
     }
 }
