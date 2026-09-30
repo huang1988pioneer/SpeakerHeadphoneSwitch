@@ -33,7 +33,7 @@
         <StackPanel Spacing="16">
             <StackPanel Spacing="5">
                 <TextBlock Text="裝置設定" FontSize="24" FontWeight="Bold" />
-                <TextBlock Text="為每種目標指定要切換到的裝置。藍牙目標只列出藍牙裝置，喇叭與耳機只列出非藍牙裝置；選「自動選擇」則依裝置名稱判斷。"
+                <TextBlock Text="為每種目標指定要切換到的裝置。藍牙目標只列出藍牙裝置，喇叭與耳機只列出非藍牙裝置，並依種類篩選；選「自動選擇」則依裝置名稱判斷。"
                            FontSize="13"
                            TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -47,25 +47,30 @@
                 <Grid ColumnDefinitions="96,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12" ColumnSpacing="12">
                     <TextBlock Classes="label" Text="喇叭" />
                     <ComboBox Grid.Column="1"
-                              ItemsSource="{Binding WiredOptions}"
+                              ItemsSource="{Binding SpeakerOptions}"
                               SelectedItem="{Binding Speaker}" />
 
                     <TextBlock Grid.Row="1" Classes="label" Text="耳機" />
                     <ComboBox Grid.Row="1" Grid.Column="1"
-                              ItemsSource="{Binding WiredOptions}"
+                              ItemsSource="{Binding HeadphoneOptions}"
                               SelectedItem="{Binding Headphone}" />
 
                     <TextBlock Grid.Row="2" Classes="label" Text="藍牙喇叭" />
                     <ComboBox Grid.Row="2" Grid.Column="1"
-                              ItemsSource="{Binding BluetoothOptions}"
+                              ItemsSource="{Binding BluetoothSpeakerOptions}"
                               SelectedItem="{Binding BluetoothSpeaker}" />
 
                     <TextBlock Grid.Row="3" Classes="label" Text="藍牙耳機" />
                     <ComboBox Grid.Row="3" Grid.Column="1"
-                              ItemsSource="{Binding BluetoothOptions}"
+                              ItemsSource="{Binding BluetoothHeadphoneOptions}"
                               SelectedItem="{Binding BluetoothHeadphone}" />
                 </Grid>
             </Border>
+
+            <CheckBox IsChecked="{Binding ShowAllKinds}"
+                      ToolTip.Tip="名稱沒有「喇叭／speaker」「耳機／headphone」等字樣的藍牙裝置只能推測種類；推測錯誤時勾選此項即可選到它">
+                <TextBlock Text="顯示所有類型的裝置（裝置種類判斷錯誤時使用）" FontSize="13" />
+            </CheckBox>
 
             <TextBlock Text="主視窗勾選「喇叭使用藍牙」「耳機使用藍牙」時，會改用對應的藍牙設定。"
                        FontSize="12"
