@@ -10,7 +10,7 @@ Restart-Service AudioEndpointBuilder -Force
 Start-Sleep -Seconds 3
 Get-Service Audiosrv, AudioEndpointBuilder | Format-Table -AutoSize Status, Name
 
-Write-Host "== 測試裝置音量 API(列舉裝置並把預設裝置設為 33%)==" -ForegroundColor Cyan
+Write-Host "== 測試裝置音量 API(列舉裝置並把預設裝置設為 50%)==" -ForegroundColor Cyan
 & "$PSScriptRoot\AudioSwitchTest\bin\Debug\net8.0-windows\AudioSwitchTest.exe"
 
 Write-Host "== 完成。若上方輸出中的音量可正常讀寫即已修復;請重新啟動 SpeakerHeadphoneSwitch 驗證。==" -ForegroundColor Green

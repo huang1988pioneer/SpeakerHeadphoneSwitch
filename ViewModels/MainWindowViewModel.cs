@@ -14,7 +14,7 @@ namespace SpeakerHeadphoneSwitch.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     /// <summary>切換之後的預設音量(%)。</summary>
-    private const float DefaultVolumePercent = 33f;
+    private const float DefaultVolumePercent = 50f;
 
     /// <summary>切換之前將目前裝置音量歸零(%)。</summary>
     private const float OffVolumePercent = 0f;
@@ -163,7 +163,7 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」端點音量設為 33%…", AccentBrush);
+            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」端點音量設為 50%…", AccentBrush);
             var targetVolumeSet = await Task.Run(
                 () => TrySetEndpointVolumeAndVerify(plan.Target.Id, DefaultVolumePercent));
 
@@ -173,7 +173,7 @@ public partial class MainWindowViewModel : ObservableObject
                 Refresh();
                 SetStatus(
                     "切換已回復",
-                    $"無法將「{plan.Target.Name}」的 Windows 端點音量確認為 33%，已嘗試恢復原本設定。",
+                    $"無法將「{plan.Target.Name}」的 Windows 端點音量確認為 50%，已嘗試恢復原本設定。",
                     ErrorBrush);
                 return;
             }
@@ -181,7 +181,7 @@ public partial class MainWindowViewModel : ObservableObject
             Refresh();
             SetStatus(
                 "切換完成",
-                $"目前輸出為「{plan.Target.Name}」，Windows 端點音量已確認為 33%。",
+                $"目前輸出為「{plan.Target.Name}」，Windows 端點音量已確認為 50%。",
                 SuccessBrush);
         }
         catch (Exception ex)
@@ -313,7 +313,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private static bool IsExpectedVolume(float actualPercent, float expectedPercent)
     {
-        // 0% 必須確實是靜音；33% 允許端點硬體量化造成的小數點誤差。
+        // 0% 必須確實是靜音；50% 允許端點硬體量化造成的小數點誤差。
         return expectedPercent == OffVolumePercent
             ? actualPercent <= 0.01f
             : Math.Abs(actualPercent - expectedPercent) <= VolumeVerificationTolerancePercent;

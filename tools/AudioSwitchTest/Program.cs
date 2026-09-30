@@ -13,10 +13,10 @@ foreach (var device in audio.GetActiveOutputDevices())
     Console.WriteLine($"  {device.Name}: {(volume is null ? "無法讀取端點音量" : $"{volume:0}%")}");
 }
 
-Console.WriteLine("\n=== 設定預設裝置端點音量 33% 並讀回 ===");
+Console.WriteLine("\n=== 設定預設裝置端點音量 50% 並讀回 ===");
 if (def is not null)
 {
-    var setSucceeded = audio.TrySetEndpointVolumePercent(def.Id, 33f);
+    var setSucceeded = audio.TrySetEndpointVolumePercent(def.Id, 50f);
     var readBack = audio.TryGetEndpointVolumePercent(def.Id);
     Console.WriteLine($"設定: {(setSucceeded ? "成功" : "失敗")};讀回: {(readBack is null ? "無法讀取" : $"{readBack:0}%")}");
 }

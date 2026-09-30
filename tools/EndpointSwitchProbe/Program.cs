@@ -46,7 +46,7 @@ var currentSet = false;
 var defaultSet = false;
 var targetSet = false;
 EndpointReadResult currentAfterZero = EndpointReadResult.Failed("尚未執行");
-EndpointReadResult targetAfterThirtyThree = EndpointReadResult.Failed("尚未執行");
+EndpointReadResult targetAfterFifty = EndpointReadResult.Failed("尚未執行");
 Exception? switchException = null;
 
 try
@@ -67,8 +67,8 @@ try
 
     if (switchException is null)
     {
-        targetSet = audio.TrySetVolumePercent(target.Id, 33f);
-        targetAfterThirtyThree = ReadWithRetry(target.Id, expected: 33f);
+        targetSet = audio.TrySetVolumePercent(target.Id, 50f);
+        targetAfterFifty = ReadWithRetry(target.Id, expected: 50f);
     }
 }
 finally
@@ -80,7 +80,7 @@ finally
 var elapsed = stopwatch.Elapsed;
 var currentPass = currentSet && currentAfterZero.IsWithin(0f);
 var defaultPass = defaultSet && switchException is null;
-var targetPass = targetSet && targetAfterThirtyThree.IsWithin(33f);
+var targetPass = targetSet && targetAfterFifty.IsWithin(50f);
 var result = currentPass && defaultPass && targetPass && elapsed <= TimeSpan.FromSeconds(3);
 
 Console.WriteLine();
@@ -90,11 +90,11 @@ PrintProbe("步驟 1 端點讀回", currentAfterZero);
 Console.WriteLine($"步驟 2 切換預設裝置: {(defaultPass ? "成功" : "失敗")}");
 if (switchException is not null)
     Console.WriteLine($"切換錯誤: {switchException.Message}");
-Console.WriteLine($"步驟 3 設定目標裝置 33%: {(targetSet ? "呼叫成功" : "呼叫失敗")}");
-PrintProbe("步驟 3 端點讀回", targetAfterThirtyThree);
+Console.WriteLine($"步驟 3 設定目標裝置 50%: {(targetSet ? "呼叫成功" : "呼叫失敗")}");
+PrintProbe("步驟 3 端點讀回", targetAfterFifty);
 Console.WriteLine($"完整切換耗時: {elapsed.TotalMilliseconds:0} ms (上限 3000 ms)");
 Console.WriteLine($"ASSERT_BEFORE_ZERO={(currentPass ? "PASS" : "FAIL")}");
-Console.WriteLine($"ASSERT_AFTER_33={(targetPass ? "PASS" : "FAIL")}");
+Console.WriteLine($"ASSERT_AFTER_50={(targetPass ? "PASS" : "FAIL")}");
 Console.WriteLine($"ASSERT_WITHIN_3S={(elapsed <= TimeSpan.FromSeconds(3) ? "PASS" : "FAIL")}");
 Console.WriteLine($"RESULT={(result ? "PASS" : "FAIL")}");
 

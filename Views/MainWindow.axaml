@@ -33,7 +33,7 @@
                                    FontSize="28"
                                    FontWeight="Bold"
                                    LetterSpacing="0.2" />
-                        <TextBlock Text="先靜音，再換裝置，最後回到 33%"
+                        <TextBlock Text="先靜音，再換裝置，最後回到 50%"
                                    FontSize="14"
                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                     </StackPanel>
@@ -239,7 +239,7 @@
                                            FontSize="13"
                                            FontWeight="SemiBold"
                                            HorizontalAlignment="Center" />
-                                <TextBlock Text="音量 33%"
+                                <TextBlock Text="音量 50%"
                                            FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            HorizontalAlignment="Center" />
