@@ -21,13 +21,13 @@
     </Design.DataContext>
 
     <!-- 視窗高度跟隨內容，不需要捲軸。 -->
-    <Border Margin="18"
-            Padding="26"
+    <Border Margin="14"
+            Padding="22"
             Background="{DynamicResource SurfaceBrush}"
             BorderBrush="{DynamicResource LineBrush}"
             BorderThickness="1"
             CornerRadius="24">
-        <StackPanel Spacing="22">
+        <StackPanel Spacing="16">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <StackPanel Spacing="5">
                     <TextBlock Text="音訊快速切換"
@@ -141,7 +141,7 @@
                     BorderBrush="{DynamicResource LineBrush}"
                     BorderThickness="1"
                     CornerRadius="18">
-                <StackPanel Spacing="16">
+                <StackPanel Spacing="14">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <StackPanel Spacing="4">
                             <TextBlock Text="安全切換順序"
@@ -245,6 +245,20 @@
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        HorizontalAlignment="Center" />
                         </StackPanel>
+                    </Grid>
+
+                    <!-- 勾選時優先切換到藍牙裝置；未勾選時優先使用內建／有線裝置。 -->
+                    <Border Height="1" Background="{DynamicResource LineBrush}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <CheckBox IsChecked="{Binding UseBluetoothSpeaker}"
+                                  ToolTip.Tip="勾選：切換至喇叭時使用藍牙喇叭；未勾選：使用內建或有線喇叭">
+                            <TextBlock Text="喇叭使用藍牙" FontSize="13" />
+                        </CheckBox>
+                        <CheckBox Grid.Column="1"
+                                  IsChecked="{Binding UseBluetoothHeadphone}"
+                                  ToolTip.Tip="勾選：切換至耳機時使用藍牙耳機；未勾選：使用有線耳機">
+                            <TextBlock Text="耳機使用藍牙" FontSize="13" />
+                        </CheckBox>
                     </Grid>
                 </StackPanel>
             </Border>

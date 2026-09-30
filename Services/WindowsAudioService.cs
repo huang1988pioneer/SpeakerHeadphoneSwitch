@@ -243,7 +243,7 @@ public sealed class WindowsAudioService : IAudioService
         var formFactorValue = ReadIntProperty(device, AudioPropertyKeys.AudioEndpointFormFactor);
         var formFactor = (EndpointFormFactor)formFactorValue;
 
-        return new AudioDevice(id, name, Classify(formFactor, name));
+        return new AudioDevice(id, name, Classify(formFactor, name), IsBluetooth(device, name));
     }
 
     private static string? ReadStringProperty(IMMDevice device, PropertyKey key)
@@ -278,6 +278,19 @@ public sealed class WindowsAudioService : IAudioService
         {
             PropVariantClear(ref pv);
         }
+    }
+
+    /// <summary>依端點所屬裝置的列舉器（BTH*）判斷藍牙，取不到時以名稱關鍵字後備。</summary>
+    private static bool IsBluetooth(IMMDevice device, string name)
+    {
+        foreach (var key in new[] { AudioPropertyKeys.DeviceEnumeratorName, AudioPropertyKeys.AudioEndpointDeviceInstance })
+        {
+            if (ReadStringProperty(device, key) is { } value
+                && value.Contains("BTH", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return DeviceNameClassifier.LooksBluetooth(name);
     }
 
     [DllImport("ole32.dll")]

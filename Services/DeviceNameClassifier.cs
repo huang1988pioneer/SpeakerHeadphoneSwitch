@@ -11,6 +11,9 @@ internal static class DeviceNameClassifier
     private static readonly string[] SpeakerKeywords =
         ["speaker", "喇叭", "揚聲器", "扬声器"];
 
+    public static bool LooksBluetooth(string name) =>
+        name.Contains("bluetooth", StringComparison.OrdinalIgnoreCase) || name.Contains("藍牙") || name.Contains("蓝牙");
+
     public static DeviceKind Classify(string name)
     {
         var lower = name.ToLowerInvariant();

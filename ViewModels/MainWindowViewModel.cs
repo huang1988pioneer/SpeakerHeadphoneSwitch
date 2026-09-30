@@ -33,6 +33,7 @@ public partial class MainWindowViewModel : ObservableObject
     private static readonly IBrush ErrorBrush = new SolidColorBrush(Color.Parse("#FF8C8C"));
 
     private readonly IAudioService _audio = AudioServiceFactory.Create();
+    private readonly AppSettings _settings = AppSettings.Load();
 
     [ObservableProperty]
     private string _currentDeviceName = "讀取中…";
@@ -78,12 +79,24 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(RefreshStatusCommand))]
     private bool _isBusy;
 
+    /// <summary>切換至喇叭時優先使用藍牙喇叭；未勾選時優先使用內建／有線喇叭。</summary>
+    [ObservableProperty]
+    private bool _useBluetoothSpeaker;
+
+    /// <summary>切換至耳機時優先使用藍牙耳機；未勾選時優先使用有線／內建耳機。</summary>
+    [ObservableProperty]
+    private bool _useBluetoothHeadphone;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleCommand))]
     private bool _hasCurrentDevice;
 
     public MainWindowViewModel()
     {
+        // 直接寫入欄位，避免啟動時觸發儲存。
+        _useBluetoothSpeaker = _settings.UseBluetoothSpeaker;
+        _useBluetoothHeadphone = _settings.UseBluetoothHeadphone;
+
         try
         {
             if (Refresh())
@@ -229,7 +242,30 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    partial void OnUseBluetoothSpeakerChanged(bool value)
+    {
+        _settings.UseBluetoothSpeaker = value;
+        SaveBluetoothPreference();
+    }
+
+    partial void OnUseBluetoothHeadphoneChanged(bool value)
+    {
+        _settings.UseBluetoothHeadphone = value;
+        SaveBluetoothPreference();
+    }
+
+    private void SaveBluetoothPreference()
+    {
+        _settings.Save();
+        if (HasCurrentDevice && !IsBusy)
+            UpdateTargetText(CurrentKind);
+    }
+
     private bool CanToggle() => HasCurrentDevice && !IsBusy;
+
+    private DeviceKind CurrentKind => IsHeadphone ? DeviceKind.Headphone
+        : IsSpeaker ? DeviceKind.Speaker
+        : DeviceKind.Unknown;
 
     private bool CanRefresh() => !IsBusy;
 
@@ -250,7 +286,10 @@ public partial class MainWindowViewModel : ObservableObject
         var candidates = _audio.GetActiveOutputDevices()
             .Where(d => d.Id != current.Id && _audio.TryGetEndpointVolumePercent(d.Id) is not null)
             .ToList();
-        var target = candidates.FirstOrDefault(d => d.Kind == targetKind)
+        // 依勾選決定藍牙或有線優先；偏好的連線方式不存在時退回同種類裝置，再退回任一輸出裝置。
+        var wantBluetooth = WantsBluetooth(targetKind);
+        var target = candidates.FirstOrDefault(d => d.Kind == targetKind && d.IsBluetooth == wantBluetooth)
+                     ?? candidates.FirstOrDefault(d => d.Kind == targetKind)
                      ?? candidates.FirstOrDefault();
 
         if (target is null)
@@ -353,10 +392,12 @@ public partial class MainWindowViewModel : ObservableObject
 
         HasCurrentDevice = true;
         CurrentDeviceName = current.Name;
-        CurrentKindText = current.Kind switch
+        CurrentKindText = (current.Kind, current.IsBluetooth) switch
         {
-            DeviceKind.Headphone => "耳機輸出",
-            DeviceKind.Speaker => "喇叭輸出",
+            (DeviceKind.Headphone, true) => "藍牙耳機輸出",
+            (DeviceKind.Headphone, false) => "耳機輸出",
+            (DeviceKind.Speaker, true) => "藍牙喇叭輸出",
+            (DeviceKind.Speaker, false) => "喇叭輸出",
             _ => "其他輸出",
         };
         // 顯示值也只讀端點主音量，避免把 session 音量誤顯示成系統裝置音量。
@@ -369,13 +410,7 @@ public partial class MainWindowViewModel : ObservableObject
         IsOtherOutput = current.Kind == DeviceKind.Unknown;
         IsTargetSpeaker = IsHeadphone;
         IsTargetHeadphone = IsSpeaker;
-        TargetKindText = current.Kind switch
-        {
-            DeviceKind.Headphone => "目標：喇叭",
-            DeviceKind.Speaker => "目標：耳機",
-            _ => "目標：下一個輸出裝置",
-        };
-        UpdateActionText(current.Kind);
+        UpdateTargetText(current.Kind);
         return true;
     }
 
@@ -394,22 +429,25 @@ public partial class MainWindowViewModel : ObservableObject
         IsTargetHeadphone = false;
     }
 
-    private void UpdateActionText()
-    {
-        var current = IsHeadphone ? DeviceKind.Headphone
-            : IsSpeaker ? DeviceKind.Speaker
-            : DeviceKind.Unknown;
-        UpdateActionText(current);
-    }
+    private void UpdateActionText() => UpdateTargetText(CurrentKind);
 
-    private void UpdateActionText(DeviceKind kind)
+    private bool WantsBluetooth(DeviceKind kind) => kind switch
     {
-        ToggleButtonText = kind switch
+        DeviceKind.Speaker => UseBluetoothSpeaker,
+        DeviceKind.Headphone => UseBluetoothHeadphone,
+        _ => false,
+    };
+
+    private void UpdateTargetText(DeviceKind currentKind)
+    {
+        var targetName = currentKind switch
         {
-            DeviceKind.Headphone => "切換至喇叭",
-            DeviceKind.Speaker => "切換至耳機",
-            _ => "切換輸出裝置",
+            DeviceKind.Headphone => UseBluetoothSpeaker ? "藍牙喇叭" : "喇叭",
+            DeviceKind.Speaker => UseBluetoothHeadphone ? "藍牙耳機" : "耳機",
+            _ => null,
         };
+        TargetKindText = targetName is null ? "目標：下一個輸出裝置" : $"目標：{targetName}";
+        ToggleButtonText = targetName is null ? "切換輸出裝置" : $"切換至{targetName}";
     }
 
     private void SetStatus(string title, string detail, IBrush brush)

@@ -372,6 +372,14 @@ internal static class AudioPropertyKeys
     public static readonly PropertyKey DeviceFriendlyName =
         new(new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"), 14);
 
+    // PKEY_Device_EnumeratorName：藍牙裝置為 BTHENUM／BTHHFENUM／BTHLEDEVICE。
+    public static readonly PropertyKey DeviceEnumeratorName =
+        new(new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"), 24);
+
+    // 端點所屬裝置節點的 Instance ID，例如 "{1}.BTHENUM\..."。
+    public static readonly PropertyKey AudioEndpointDeviceInstance =
+        new(new Guid("233164C8-1B2C-4C7D-BC68-B671687A2567"), 1);
+
     // PKEY_AudioEndpoint_FormFactor
     public static readonly PropertyKey AudioEndpointFormFactor =
         new(new Guid("1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E"), 3);

@@ -233,7 +233,14 @@ public sealed class MacAudioService : IAudioService
         if (string.IsNullOrWhiteSpace(name))
             name = uid;
 
-        return new AudioDevice(uid, name, Classify(objectId, name));
+        return new AudioDevice(uid, name, Classify(objectId, name), IsBluetooth(objectId));
+    }
+
+    private static bool IsBluetooth(uint objectId)
+    {
+        var address = new PropertyAddress(DeviceTransportType, ScopeGlobal, ElementMain);
+        return TryGetUInt32(objectId, address, out var transport)
+               && (transport == TransportBluetooth || transport == TransportBluetoothLe);
     }
 
     /// <summary>依名稱關鍵字（優先）、內建輸出的資料來源與傳輸方式判斷是耳機還是喇叭。</summary>
