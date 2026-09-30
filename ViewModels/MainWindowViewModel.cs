@@ -456,9 +456,10 @@ public partial class MainWindowViewModel : ObservableObject
         _ => false,
     };
 
-    /// <summary>設定中指定的目標優先於自動偵測的種類與連線方式。</summary>
+    /// <summary>優先順序：設定中指定的目標 → 手動標注的種類 → 自動偵測。</summary>
     private (DeviceKind Kind, bool Bluetooth) Classify(AudioDevice device) =>
-        _settings.FindAssignedSlot(device.Id) ?? (device.Kind, device.IsBluetooth);
+        _settings.FindAssignedSlot(device.Id)
+        ?? (_settings.GetKindLabel(device.Id) ?? device.Kind, device.IsBluetooth);
 
     private void UpdateTargetText(DeviceKind currentKind)
     {

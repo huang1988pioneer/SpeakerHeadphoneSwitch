@@ -33,7 +33,7 @@
         <StackPanel Spacing="16">
             <StackPanel Spacing="5">
                 <TextBlock Text="裝置設定" FontSize="24" FontWeight="Bold" />
-                <TextBlock Text="為每種目標指定要切換到的裝置。藍牙目標只列出藍牙裝置，喇叭與耳機只列出非藍牙裝置，並依種類篩選；選「自動選擇」則依裝置名稱判斷。"
+                <TextBlock Text="為每種目標指定要切換到的裝置。藍牙目標只列出藍牙裝置，喇叭與耳機只列出非藍牙裝置，並依種類篩選；選「自動選擇」則自動判斷。"
                            FontSize="13"
                            TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -67,10 +67,35 @@
                 </Grid>
             </Border>
 
-            <CheckBox IsChecked="{Binding ShowAllKinds}"
-                      ToolTip.Tip="名稱沒有「喇叭／speaker」「耳機／headphone」等字樣的藍牙裝置只能推測種類；推測錯誤時勾選此項即可選到它">
-                <TextBlock Text="顯示所有類型的裝置（裝置種類判斷錯誤時使用）" FontSize="13" />
-            </CheckBox>
+            <StackPanel Spacing="8" IsVisible="{Binding HasBluetoothDevices}">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="藍牙裝置種類" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock Text="藍牙裝置名稱常無法判斷是耳機還是喇叭，可在此手動標注；標注後會出現在對應的選單中。"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+                <Border Padding="17,11"
+                        Background="{DynamicResource SurfaceMutedBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="18">
+                    <ItemsControl ItemsSource="{Binding BluetoothLabels}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BluetoothDeviceLabel">
+                                <Grid ColumnDefinitions="*,170" ColumnSpacing="12" Margin="0,5">
+                                    <TextBlock Classes="label"
+                                               Text="{Binding Name}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <ComboBox Grid.Column="1"
+                                              ItemsSource="{Binding Choices}"
+                                              SelectedItem="{Binding Selected}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </StackPanel>
 
             <TextBlock Text="主視窗勾選「喇叭使用藍牙」「耳機使用藍牙」時，會改用對應的藍牙設定。"
                        FontSize="12"

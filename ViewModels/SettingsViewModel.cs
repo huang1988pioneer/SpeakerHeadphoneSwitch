@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -12,6 +13,45 @@ public sealed record DeviceOption(string? Id, string Name, string Detail)
     public string Label => string.IsNullOrEmpty(Detail) ? Name : $"{Name}（{Detail}）";
 
     public override string ToString() => Label;
+}
+
+/// <summary>種類標注選項；Kind 為 null 代表沿用自動偵測。</summary>
+public sealed record KindChoice(DeviceKind? Kind, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>設定視窗中一個藍牙裝置的種類標注列。</summary>
+public partial class BluetoothDeviceLabel : ObservableObject
+{
+    private readonly Action _changed;
+
+    [ObservableProperty]
+    private KindChoice? _selected;
+
+    public BluetoothDeviceLabel(AudioDevice device, DeviceKind? label, Action changed)
+    {
+        Device = device;
+        _changed = changed;
+        Choices =
+        [
+            new KindChoice(null, $"自動（{SettingsViewModel.KindName(device.Kind)}）"),
+            new KindChoice(DeviceKind.Headphone, "耳機"),
+            new KindChoice(DeviceKind.Speaker, "喇叭"),
+        ];
+        _selected = Choices.First(choice => choice.Kind == label);
+    }
+
+    public AudioDevice Device { get; }
+
+    public string Name => Device.Name;
+
+    public IReadOnlyList<KindChoice> Choices { get; }
+
+    /// <summary>目前生效的種類：手動標注優先，否則為自動偵測。</summary>
+    public DeviceKind EffectiveKind => Selected?.Kind ?? Device.Kind;
+
+    partial void OnSelectedChanged(KindChoice? value) => _changed();
 }
 
 public partial class SettingsViewModel : ObservableObject
@@ -38,13 +78,6 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ConflictText), nameof(CanSave))]
     private DeviceOption? _bluetoothHeadphone;
 
-    /// <summary>
-    /// 預設只列出種類相符（或無法判斷）的裝置。名稱沒有關鍵字的藍牙裝置只能猜測種類，
-    /// 猜錯時可勾選此項改列出所有種類。
-    /// </summary>
-    [ObservableProperty]
-    private bool _showAllKinds;
-
     public SettingsViewModel(IAudioService audio, AppSettings settings)
     {
         _settings = settings;
@@ -52,17 +85,10 @@ public partial class SettingsViewModel : ObservableObject
             .Select(device => (device, audio.TryGetEndpointVolumePercent(device.Id) is not null))
             .ToList();
 
-        // 已指定的裝置若不在預設篩選內（例如之前以「顯示所有類型」指定），開啟時直接顯示所有類型。
-        _showAllKinds = new[]
-            {
-                (settings.SpeakerDevice, DeviceKind.Speaker, false),
-                (settings.HeadphoneDevice, DeviceKind.Headphone, false),
-                (settings.BluetoothSpeakerDevice, DeviceKind.Speaker, true),
-                (settings.BluetoothHeadphoneDevice, DeviceKind.Headphone, true),
-            }
-            .Any(slot => slot.Item1 is { } assigned
-                         && _devices.Any(d => d.Device.Id == assigned.Id
-                                              && !Matches(d.Device, slot.Item2, slot.Item3, showAllKinds: false)));
+        BluetoothLabels = _devices
+            .Where(d => d.Device.IsBluetooth)
+            .Select(d => new BluetoothDeviceLabel(d.Device, settings.GetKindLabel(d.Device.Id), OnLabelChanged))
+            .ToList();
 
         RebuildOptions();
         _speaker = Find(SpeakerOptions, settings.SpeakerDevice);
@@ -83,6 +109,11 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>藍牙耳機：藍牙的耳機與無法判斷種類的裝置。</summary>
     public IReadOnlyList<DeviceOption> BluetoothHeadphoneOptions { get; private set; } = [];
 
+    /// <summary>目前連線的藍牙裝置，可手動標注為耳機或喇叭。</summary>
+    public IReadOnlyList<BluetoothDeviceLabel> BluetoothLabels { get; }
+
+    public bool HasBluetoothDevices => BluetoothLabels.Count > 0;
+
     /// <summary>同一個裝置不能同時當喇叭又當耳機，否則無法判斷切換方向。</summary>
     public string ConflictText
     {
@@ -99,6 +130,9 @@ public partial class SettingsViewModel : ObservableObject
 
     public void Save()
     {
+        foreach (var label in BluetoothLabels)
+            _settings.SetKindLabel(label.Device.Id, label.Name, label.Selected?.Kind);
+
         _settings.SpeakerDevice = ToAssignment(Speaker);
         _settings.HeadphoneDevice = ToAssignment(Headphone);
         _settings.BluetoothSpeakerDevice = ToAssignment(BluetoothSpeaker);
@@ -106,9 +140,17 @@ public partial class SettingsViewModel : ObservableObject
         _settings.Save();
     }
 
-    partial void OnShowAllKindsChanged(bool value)
+    internal static string KindName(DeviceKind kind) => kind switch
     {
-        // 更換清單前記下選取值，更換後以 Id 找回，避免下拉選單重設造成指定遺失。
+        DeviceKind.Speaker => "喇叭",
+        DeviceKind.Headphone => "耳機",
+        _ => "其他",
+    };
+
+    /// <summary>標注改變後重建下拉選單，讓裝置立即出現在對應種類的選單中。</summary>
+    private void OnLabelChanged()
+    {
+        // 更換清單前記下選取值，更換後以 Id 找回；已不屬於該種類的選取改回「自動選擇」。
         var selected = (Speaker, Headphone, BluetoothSpeaker, BluetoothHeadphone);
         RebuildOptions();
         OnPropertyChanged(nameof(SpeakerOptions));
@@ -123,32 +165,39 @@ public partial class SettingsViewModel : ObservableObject
 
     private void RebuildOptions()
     {
-        SpeakerOptions = BuildOptions(DeviceKind.Speaker, false, _settings.SpeakerDevice, Speaker);
-        HeadphoneOptions = BuildOptions(DeviceKind.Headphone, false, _settings.HeadphoneDevice, Headphone);
-        BluetoothSpeakerOptions = BuildOptions(DeviceKind.Speaker, true, _settings.BluetoothSpeakerDevice, BluetoothSpeaker);
-        BluetoothHeadphoneOptions = BuildOptions(DeviceKind.Headphone, true, _settings.BluetoothHeadphoneDevice, BluetoothHeadphone);
+        SpeakerOptions = BuildOptions(DeviceKind.Speaker, false, _settings.SpeakerDevice);
+        HeadphoneOptions = BuildOptions(DeviceKind.Headphone, false, _settings.HeadphoneDevice);
+        BluetoothSpeakerOptions = BuildOptions(DeviceKind.Speaker, true, _settings.BluetoothSpeakerDevice);
+        BluetoothHeadphoneOptions = BuildOptions(DeviceKind.Headphone, true, _settings.BluetoothHeadphoneDevice);
     }
 
-    private List<DeviceOption> BuildOptions(DeviceKind kind, bool bluetooth, DeviceAssignment? saved, DeviceOption? selected)
+    private List<DeviceOption> BuildOptions(DeviceKind kind, bool bluetooth, DeviceAssignment? saved)
     {
+        // 藍牙目標只列藍牙裝置、其餘只列非藍牙裝置；再依種類（含手動標注）篩選，保留無法判斷種類的裝置。
         var options = new List<DeviceOption> { AutoOption };
         options.AddRange(_devices
-            .Where(d => Matches(d.Device, kind, bluetooth, ShowAllKinds) || d.Device.Id == selected?.Id)
-            // 種類相符的排在前面，其次是無法判斷種類的裝置。
-            .OrderBy(d => d.Device.Kind == kind ? 0 : d.Device.Kind == DeviceKind.Unknown ? 1 : 2)
-            .Select(d => new DeviceOption(d.Device.Id, d.Device.Name, Describe(d.Device, d.HasVolume))));
+            .Where(d => d.Device.IsBluetooth == bluetooth)
+            .Select(d => (d.Device, d.HasVolume, Kind: EffectiveKind(d.Device)))
+            .Where(d => d.Kind == kind || d.Kind == DeviceKind.Unknown)
+            .OrderBy(d => d.Kind == kind ? 0 : 1)
+            .Select(d => new DeviceOption(
+                d.Device.Id,
+                d.Device.Name,
+                d.HasVolume ? KindName(d.Kind) : $"{KindName(d.Kind)} · 無法調整音量")));
 
         // 已指定但目前未連線的裝置仍列出，避免開啟設定再儲存就把指定清掉。
-        if (saved is not null && options.All(option => option.Id != saved.Id))
+        if (saved is not null
+            && _devices.All(d => d.Device.Id != saved.Id)
+            && options.All(option => option.Id != saved.Id))
             options.Add(new DeviceOption(saved.Id, saved.Name, "未連線"));
 
         return options;
     }
 
-    /// <summary>藍牙目標只列藍牙裝置、其餘只列非藍牙裝置；預設另依種類篩選（保留無法判斷的裝置）。</summary>
-    private static bool Matches(AudioDevice device, DeviceKind kind, bool bluetooth, bool showAllKinds) =>
-        device.IsBluetooth == bluetooth
-        && (showAllKinds || device.Kind == kind || device.Kind == DeviceKind.Unknown);
+    private DeviceKind EffectiveKind(AudioDevice device) =>
+        BluetoothLabels.FirstOrDefault(label => label.Device.Id == device.Id)?.EffectiveKind
+        ?? _settings.GetKindLabel(device.Id)
+        ?? device.Kind;
 
     private static DeviceOption Find(IReadOnlyList<DeviceOption> options, DeviceAssignment? assigned) =>
         assigned is null ? AutoOption : options.FirstOrDefault(option => option.Id == assigned.Id) ?? AutoOption;
@@ -158,15 +207,4 @@ public partial class SettingsViewModel : ObservableObject
 
     private static DeviceAssignment? ToAssignment(DeviceOption? option) =>
         option?.Id is null ? null : new DeviceAssignment { Id = option.Id, Name = option.Name };
-
-    private static string Describe(AudioDevice device, bool hasVolume)
-    {
-        var kind = device.Kind switch
-        {
-            DeviceKind.Speaker => "喇叭",
-            DeviceKind.Headphone => "耳機",
-            _ => "其他",
-        };
-        return hasVolume ? kind : $"{kind} · 無法調整音量";
-    }
 }
