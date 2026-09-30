@@ -32,6 +32,9 @@ packaging/macos/build-macos.sh
 `dist/macos/SpeakerHeadphoneSwitch-<版本>-<RID>.dmg`。預設依本機架構建置，也可指定
 `osx-arm64` 或 `osx-x64`；`VERSION`、`CODESIGN_IDENTITY` 環境變數可覆寫版本與簽章身分。
 
+圖示由 `swift packaging/macos/make-icon.swift` 產生：`packaging/macos/AppIcon.icns`（macOS bundle）、
+`Assets/AppIcon.png`（視窗與 Dock 圖示）、`Assets/AppIcon.ico`（Windows exe 圖示）。
+
 ad-hoc 簽章未經 Apple 公證；從其他電腦下載的 DMG 第一次開啟時，請在 Finder 中按右鍵 →「打開」。
 
 ## 技術架構
