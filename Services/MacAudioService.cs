@@ -35,6 +35,7 @@ public sealed class MacAudioService : IAudioService
     private static readonly uint DeviceTransportType = FourCC("tran");
     private static readonly uint DeviceDataSource = FourCC("ssrc");
     private static readonly uint DeviceVolumeScalar = FourCC("volm");
+    private static readonly uint DeviceMute = FourCC("mute");
     private static readonly uint DevicePreferredStereoChannels = FourCC("dch2");
     // kAudioHardwareServiceDeviceProperty_VirtualMainVolume：與選單列／系統設定的音量滑桿相同。
     private static readonly uint VirtualMainVolume = FourCC("vmvc");
@@ -75,6 +76,13 @@ public sealed class MacAudioService : IAudioService
         if (!TryFindDevice(deviceId, out var objectId))
             return null;
 
+        var level = ReadVolumeLevel(objectId);
+        // 靜音時選單列滑桿顯示為 0；回報 0% 才能讓「確認 50%」的驗證反映實際聽到的音量。
+        return level is not null && IsMuted(objectId) ? 0f : level;
+    }
+
+    private static float? ReadVolumeLevel(uint objectId)
+    {
         var virtualMain = new PropertyAddress(VirtualMainVolume, ScopeOutput, ElementMain);
         if (TryHardwareServiceGetFloat(objectId, virtualMain, out var level))
             return level * 100f;
@@ -98,7 +106,15 @@ public sealed class MacAudioService : IAudioService
             return false;
 
         var level = Math.Clamp(percent, 0f, 100f) / 100f;
+        if (!WriteVolumeLevel(objectId, level))
+            return false;
 
+        // 音量拉到 0 時 macOS 會自動靜音，之後只寫入音量仍然聽不到；非 0 音量必須一併解除靜音。
+        return level <= 0f || TrySetMuted(objectId, false);
+    }
+
+    private static bool WriteVolumeLevel(uint objectId, float level)
+    {
         var virtualMain = new PropertyAddress(VirtualMainVolume, ScopeOutput, ElementMain);
         if (TryHardwareServiceSetFloat(objectId, virtualMain, level))
             return true;
@@ -116,6 +132,42 @@ public sealed class MacAudioService : IAudioService
         }
 
         return applied > 0;
+    }
+
+    /// <summary>主聲道靜音，或（沒有主聲道靜音時）所有左右聲道都靜音。</summary>
+    private static bool IsMuted(uint objectId)
+    {
+        var main = new PropertyAddress(DeviceMute, ScopeOutput, ElementMain);
+        if (AudioObjectHasProperty(objectId, ref main))
+            return TryGetUInt32(objectId, main, out var muted) && muted != 0;
+
+        var channelStates = GetStereoChannels(objectId)
+            .Select(channel => new PropertyAddress(DeviceMute, ScopeOutput, channel))
+            .Where(address => AudioObjectHasProperty(objectId, ref address))
+            .Select(address => TryGetUInt32(objectId, address, out var muted) && muted != 0)
+            .ToList();
+        return channelStates.Count > 0 && channelStates.All(muted => muted);
+    }
+
+    /// <summary>設定靜音狀態；裝置沒有靜音控制時視為成功（不存在靜音就不會被靜音擋住）。</summary>
+    private static bool TrySetMuted(uint objectId, bool muted)
+    {
+        uint value = muted ? 1u : 0u;
+        var main = new PropertyAddress(DeviceMute, ScopeOutput, ElementMain);
+        if (AudioObjectHasProperty(objectId, ref main))
+            return IsSettable(objectId, main)
+                   && AudioObjectSetPropertyData(objectId, ref main, 0, IntPtr.Zero, sizeof(uint), ref value) == 0;
+
+        foreach (var channel in GetStereoChannels(objectId))
+        {
+            var address = new PropertyAddress(DeviceMute, ScopeOutput, channel);
+            if (AudioObjectHasProperty(objectId, ref address)
+                && (!IsSettable(objectId, address)
+                    || AudioObjectSetPropertyData(objectId, ref address, 0, IntPtr.Zero, sizeof(uint), ref value) != 0))
+                return false;
+        }
+
+        return true;
     }
 
     public void SetDefaultOutputDevice(string deviceId)

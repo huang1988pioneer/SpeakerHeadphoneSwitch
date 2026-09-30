@@ -44,7 +44,8 @@ ad-hoc 簽章未經 Apple 公證；從其他電腦下載的 DMG 第一次開啟�
   切換流程不以工作階段（session）音量冒充端點音量；端點 API 不可用或讀回值不符時會明確回報失敗。
 - **macOS**：`MacAudioService` 以 CoreAudio HAL 列舉輸出裝置並切換 `kAudioHardwarePropertyDefaultOutputDevice`
   （同時設定系統提示音裝置）；音量優先使用 `VirtualMainVolume`（與選單列音量滑桿相同），
-  不支援時退回主聲道或左右聲道的 `VolumeScalar`。沒有音量控制的裝置（例如 HDMI 螢幕）不會被選為切換目標。
+  不支援時退回主聲道或左右聲道的 `VolumeScalar`；
+  設定非 0 音量時會一併解除靜音，靜音中的裝置一律讀為 0%，避免「數值 50% 但實際聽不到」。沒有音量控制的裝置（例如 HDMI 螢幕）不會被選為切換目標。
   分類依名稱、內建輸出的資料來源（耳機孔／內建揚聲器）與傳輸方式（藍牙視為耳機）。
 - **Windows 裝置分類**：先看 `PKEY_AudioEndpoint_FormFactor`（Headphones/Headset → 耳機、Speakers → 喇叭），
   再以名稱關鍵字（耳機/headphone/headset、喇叭/speaker）後備判斷。
