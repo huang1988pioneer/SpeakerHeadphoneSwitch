@@ -35,6 +35,17 @@ bin\Debug\net8.0\SpeakerHeadphoneSwitch.exe
 
 需要 Windows 10/11 與 .NET 8 SDK（僅建置時需要）。
 
+### Windows 單一執行檔
+
+```bash
+dotnet publish SpeakerHeadphoneSwitch.csproj -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+  -p:EnableCompressionInSingleFile=true -o dist/single
+```
+
+產出 `dist/single/SpeakerHeadphoneSwitch.exe`：單一檔案、自帶執行階段、含應用程式圖示（約 43 MB），
+複製到任何資料夾即可執行，不需要安裝 .NET。`-p:Version=x.y.z` 可覆寫 csproj 的版本號。
+
 ### macOS 版與安裝包
 
 ```bash
