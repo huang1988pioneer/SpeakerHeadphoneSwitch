@@ -11,6 +11,16 @@
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppBackgroundBrush}">
 
+    <Window.Resources>
+        <!-- 讓滑桿沿用應用程式的琥珀色強調色，而不是 Fluent 預設的系統藍。 -->
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="#F5B544" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#FFD166" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#FFD166" />
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="#F5B544" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFD166" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#FFD166" />
+    </Window.Resources>
+
     <Window.Styles>
         <Style Selector="ComboBox">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -66,6 +76,58 @@
                               SelectedItem="{Binding BluetoothHeadphone}" />
                 </Grid>
             </Border>
+
+            <StackPanel Spacing="8">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="音量設定" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock Text="切換完成後套用到目標裝置的音量，預設 50%，可設定 0%–100%。設定為 0% 時只把音量歸零，不會把裝置標記為靜音。"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+                <Border Padding="17,14"
+                        Background="{DynamicResource SurfaceMutedBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="18">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                        <StackPanel Spacing="2">
+                            <Slider Minimum="0"
+                                    Maximum="100"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding TargetVolume}"
+                                    ToolTip.Tip="切換完成後要設定的音量（0%–100%）" />
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Text="0%"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                <TextBlock Grid.Column="1"
+                                           Text="預設 50%"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="2"
+                                           Text="100%"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                            </Grid>
+                        </StackPanel>
+                        <Border Grid.Column="1"
+                                MinWidth="64"
+                                Padding="10,8"
+                                Background="{DynamicResource SurfaceElevatedBrush}"
+                                CornerRadius="12"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="{Binding TargetVolumeText}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentStrongBrush}"
+                                       HorizontalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+            </StackPanel>
 
             <StackPanel Spacing="8" IsVisible="{Binding HasBluetoothDevices}">
                 <StackPanel Spacing="3">

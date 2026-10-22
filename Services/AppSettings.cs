@@ -13,6 +13,9 @@ namespace SpeakerHeadphoneSwitch.Services;
 /// </summary>
 public sealed class AppSettings
 {
+    /// <summary>切換完成後套用到目標裝置的預設音量(%)。</summary>
+    public const int DefaultTargetVolumePercent = 50;
+
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "SpeakerHeadphoneSwitch",
@@ -23,6 +26,18 @@ public sealed class AppSettings
 
     /// <summary>切換至耳機時優先使用藍牙耳機。</summary>
     public bool UseBluetoothHeadphone { get; set; }
+
+    private int _targetVolumePercent = DefaultTargetVolumePercent;
+
+    /// <summary>
+    /// 切換完成後套用到目標裝置的音量（0-100%），預設 50%。
+    /// 設定為 0% 時只是把音量歸零，不會把裝置標記為靜音。
+    /// </summary>
+    public int TargetVolumePercent
+    {
+        get => _targetVolumePercent;
+        set => _targetVolumePercent = Math.Clamp(value, 0, 100);
+    }
 
     // 四種目標各自指定的裝置；null 表示自動選擇。
     public DeviceAssignment? SpeakerDevice { get; set; }

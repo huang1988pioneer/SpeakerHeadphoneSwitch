@@ -31,6 +31,12 @@ public interface IAudioService
     /// <summary>僅設定對應系統音量滑桿的裝置主音量（0-100%）。</summary>
     bool TrySetEndpointVolumePercent(string deviceId, float percent);
 
+    /// <summary>
+    /// 設定裝置的端點靜音狀態。切換完成後會用來解除靜音，
+    /// 讓「音量 0%」是音量歸零而不是靜音狀態。
+    /// </summary>
+    bool TrySetEndpointMute(string deviceId, bool muted);
+
     /// <summary>將指定裝置設為預設輸出裝置；失敗時丟出例外。</summary>
     void SetDefaultOutputDevice(string deviceId);
 }

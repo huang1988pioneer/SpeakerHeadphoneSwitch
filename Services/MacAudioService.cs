@@ -113,6 +113,13 @@ public sealed class MacAudioService : IAudioService
         return level <= 0f || TrySetMuted(objectId, false);
     }
 
+    /// <summary>
+    /// 設定端點靜音狀態。切換流程在寫入目標音量後會解除靜音，
+    /// 讓設定的 0% 是「音量歸零」而不是「靜音」。
+    /// </summary>
+    public bool TrySetEndpointMute(string deviceId, bool muted) =>
+        TryFindDevice(deviceId, out var objectId) && TrySetMuted(objectId, muted);
+
     private static bool WriteVolumeLevel(uint objectId, float level)
     {
         var virtualMain = new PropertyAddress(VirtualMainVolume, ScopeOutput, ElementMain);

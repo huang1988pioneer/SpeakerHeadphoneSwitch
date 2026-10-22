@@ -124,6 +124,20 @@ public sealed class WindowsAudioService : IAudioService
         return endpointVolume.SetMasterVolumeLevelScalar(level, ref context) >= 0;
     }
 
+    /// <summary>
+    /// 設定 Windows 音訊端點的靜音狀態（IAudioEndpointVolume::SetMute）。
+    /// 設定音量為 0 時，Windows 不會自動標記靜音；這裡只用來在切換完成後解除既有的靜音。
+    /// </summary>
+    public bool TrySetEndpointMute(string deviceId, bool muted)
+    {
+        if (!TryGetDeviceById(deviceId, out var device)
+            || !TryActivateEndpointVolume(device, out var endpointVolume))
+            return false;
+
+        var context = Guid.Empty;
+        return endpointVolume.SetMute(muted, ref context) >= 0;
+    }
+
     /// <summary>將指定裝置設為預設輸出裝置（同時設定三種角色）。</summary>
     public void SetDefaultOutputDevice(string deviceId)
     {

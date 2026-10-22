@@ -13,9 +13,6 @@ namespace SpeakerHeadphoneSwitch.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
-    /// <summary>切換之後的預設音量(%)。</summary>
-    private const float DefaultVolumePercent = 50f;
-
     /// <summary>切換之前將目前裝置音量歸零(%)。</summary>
     private const float OffVolumePercent = 0f;
 
@@ -77,6 +74,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshStatusCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AlignVolumeCommand))]
     private bool _isBusy;
 
     /// <summary>切換至喇叭時優先使用藍牙喇叭；未勾選時優先使用內建／有線喇叭。</summary>
@@ -89,11 +87,24 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AlignVolumeCommand))]
     private bool _hasCurrentDevice;
 
     /// <summary>顯示在視窗底部的版本號，方便確認執行的是哪一版。</summary>
     public string VersionText { get; } =
         $"v{typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "?"}";
+
+    /// <summary>切換完成後要套用到目標裝置的音量(%)；在設定視窗變更，預設 50%。</summary>
+    private float TargetVolumePercent => _settings.TargetVolumePercent;
+
+    /// <summary>設定視窗中的音量設定目前值，顯示在切換順序的第三步。</summary>
+    public string TargetVolumeText => $"音量 {_settings.TargetVolumePercent}%";
+
+    /// <summary>視窗副標題；隨音量設定變動。</summary>
+    public string SwitchSummaryText => $"先靜音，再換裝置，最後回到 {_settings.TargetVolumePercent}%";
+
+    /// <summary>「對齊」按鈕文字：把目前輸出裝置的音量直接設為設定的目標音量。</summary>
+    public string AlignVolumeText => $"對齊音量至 {_settings.TargetVolumePercent}%";
 
     public MainWindowViewModel()
     {
@@ -136,6 +147,9 @@ public partial class MainWindowViewModel : ObservableObject
 
             var plan = planResult.Plan;
             var note = planResult.Note;
+            // 目標音量由設定決定（0-100%，預設 50%）；流程中固定使用同一個值。
+            var targetVolume = TargetVolumePercent;
+            var targetVolumeLabel = $"{_settings.TargetVolumePercent}%";
 
             SetStatus(
                 "步驟 1 / 3",
@@ -181,9 +195,9 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」裝置音量設為 50%…", AccentBrush);
+            SetStatus("步驟 3 / 3", $"正在將「{plan.Target.Name}」裝置音量設為 {targetVolumeLabel}…", AccentBrush);
             var targetVolumeSet = await Task.Run(
-                () => TrySetEndpointVolumeAndVerify(plan.Target.Id, DefaultVolumePercent));
+                () => TrySetEndpointVolumeAndVerify(plan.Target.Id, targetVolume));
 
             if (!targetVolumeSet)
             {
@@ -191,15 +205,18 @@ public partial class MainWindowViewModel : ObservableObject
                 Refresh();
                 SetStatus(
                     "切換已回復",
-                    $"無法將「{plan.Target.Name}」的 {_audio.SystemName} 裝置音量確認為 50%，已嘗試恢復原本設定。",
+                    $"無法將「{plan.Target.Name}」的 {_audio.SystemName} 裝置音量確認為 {targetVolumeLabel}，已嘗試恢復原本設定。",
                     ErrorBrush);
                 return;
             }
 
+            // 音量設為 0% 時要的是「音量歸零」而不是「靜音」；裝置原本被靜音時也一併解除。
+            await Task.Run(() => _audio.TrySetEndpointMute(plan.Target.Id, false));
+
             Refresh();
             SetStatus(
                 "切換完成",
-                $"目前輸出為「{plan.Target.Name}」，{_audio.SystemName} 裝置音量已確認為 50%。{note}",
+                $"目前輸出為「{plan.Target.Name}」，{_audio.SystemName} 裝置音量已確認為 {targetVolumeLabel}。{note}",
                 SuccessBrush);
         }
         catch (Exception ex)
@@ -247,6 +264,63 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 對齊音量：不切換輸出裝置，只把目前裝置的端點音量設為設定的目標音量（預設 50%）。
+    /// 與切換流程使用相同的寫入與讀回驗證，數值不符時明確回報失敗。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanAlignVolume))]
+    private async Task AlignVolumeAsync()
+    {
+        IsBusy = true;
+        var targetPercent = _settings.TargetVolumePercent;
+        var label = $"{targetPercent}%";
+
+        try
+        {
+            SetStatus("正在對齊音量", $"正在把目前輸出裝置的音量設為 {label}…", AccentBrush);
+
+            var device = await Task.Run(() => _audio.GetDefaultOutputDevice());
+            if (device is null)
+            {
+                SetNoDevice();
+                SetStatus(
+                    "找不到輸出裝置",
+                    $"請確認 {_audio.SystemName} 已連接或啟用輸出裝置，再對齊音量。",
+                    WarningBrush);
+                return;
+            }
+
+            if (!await Task.Run(() => TrySetEndpointVolumeAndVerify(device.Id, targetPercent)))
+            {
+                Refresh();
+                SetStatus(
+                    "無法對齊音量",
+                    $"無法將「{device.Name}」的 {_audio.SystemName} 裝置音量確認為 {label}。",
+                    ErrorBrush);
+                return;
+            }
+
+            // 對齊後一併解除靜音：數值正確但裝置被靜音時仍然聽不到。
+            await Task.Run(() => _audio.TrySetEndpointMute(device.Id, false));
+
+            Refresh();
+            SetStatus(
+                "音量已對齊",
+                $"「{device.Name}」的 {_audio.SystemName} 裝置音量已設為 {label}。",
+                SuccessBrush);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("對齊音量失敗", GetExceptionMessage(ex), ErrorBrush);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private bool CanAlignVolume() => HasCurrentDevice && !IsBusy;
+
     partial void OnUseBluetoothSpeakerChanged(bool value)
     {
         _settings.UseBluetoothSpeaker = value;
@@ -287,7 +361,7 @@ public partial class MainWindowViewModel : ObservableObject
         var targetKind = Classify(current).Kind == DeviceKind.Headphone
             ? DeviceKind.Speaker
             : DeviceKind.Headphone;
-        // 流程最後必須把目標音量確認為 50%，沒有可讀音量的裝置（例如 HDMI 螢幕）一定會失敗，不列入目標。
+        // 流程最後必須把目標音量確認為設定值（含 0%），沒有可讀音量的裝置（例如 HDMI 螢幕）一定會失敗，不列入目標。
         var candidates = _audio.GetActiveOutputDevices()
             .Where(d => d.Id != current.Id && _audio.TryGetEndpointVolumePercent(d.Id) is not null)
             .ToList();
@@ -376,8 +450,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     private static bool IsExpectedVolume(float actualPercent, float expectedPercent)
     {
-        // 0% 必須確實是靜音；50% 允許端點硬體量化造成的小數點誤差。
-        return expectedPercent == OffVolumePercent
+        // 目標音量設為 0% 時必須確實是 0；其他值允許端點硬體量化造成的小數點誤差。
+        return expectedPercent <= OffVolumePercent
             ? actualPercent <= 0.01f
             : Math.Abs(actualPercent - expectedPercent) <= VolumeVerificationTolerancePercent;
     }
@@ -493,10 +567,15 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>設定視窗儲存後重新讀取狀態，讓目前輸出種類與目標立即反映新的指定。</summary>
     public void ApplySettings()
     {
+        // 音量設定可能已變更，先讓綁定的文字跟著更新。
+        OnPropertyChanged(nameof(TargetVolumeText));
+        OnPropertyChanged(nameof(SwitchSummaryText));
+        OnPropertyChanged(nameof(AlignVolumeText));
+
         try
         {
             if (Refresh())
-                SetStatus("設定已儲存", "之後的切換會使用新的裝置指定。", InfoBrush);
+                SetStatus("設定已儲存", $"之後的切換會使用新的裝置指定，並把目標音量設為 {_settings.TargetVolumePercent}%。", InfoBrush);
         }
         catch (Exception ex)
         {

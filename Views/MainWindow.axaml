@@ -34,7 +34,7 @@
                                FontSize="28"
                                FontWeight="Bold"
                                LetterSpacing="0.2" />
-                    <TextBlock Text="先靜音，再換裝置，最後回到 50%"
+                    <TextBlock Text="{Binding SwitchSummaryText}"
                                FontSize="14"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                 </StackPanel>
@@ -46,7 +46,7 @@
                 <Button Classes="ghost"
                         Click="OnSettingsClick"
                         IsEnabled="{Binding !IsBusy}"
-                        ToolTip.Tip="指定喇叭、耳機、藍牙喇叭、藍牙耳機各自對應的裝置">
+                        ToolTip.Tip="指定喇叭、耳機、藍牙喇叭、藍牙耳機各自對應的裝置，並調整切換後的目標音量">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <shapes:Path Data="M 4,7 L 20,7 M 4,17 L 20,17 M 9,4 L 9,10 M 15,14 L 15,20"
                                      Width="16" Height="16"
@@ -261,7 +261,7 @@
                                        FontSize="13"
                                        FontWeight="SemiBold"
                                        HorizontalAlignment="Center" />
-                            <TextBlock Text="音量 50%"
+                            <TextBlock Text="{Binding TargetVolumeText}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        HorizontalAlignment="Center" />
@@ -326,6 +326,29 @@
                                      StrokeJoin="Round"
                                      IsVisible="{Binding IsTargetHeadphone}" />
                     </Grid>
+                </StackPanel>
+            </Button>
+
+            <!-- 只對齊音量，不切換輸出裝置。 -->
+            <Button Command="{Binding AlignVolumeCommand}"
+                    Height="46"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    ToolTip.Tip="不切換輸出裝置，只把目前裝置的音量設為設定的目標音量（預設 50%）">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8"
+                            HorizontalAlignment="Center">
+                    <shapes:Path Data="M 4,9 L 20,9 M 4,15 L 20,15"
+                                 Width="16" Height="16"
+                                 Stretch="Uniform"
+                                 Stroke="{DynamicResource TextSecondaryBrush}"
+                                 StrokeThickness="1.8"
+                                 StrokeLineCap="Round"
+                                 VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding AlignVolumeText}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
 

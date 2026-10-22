@@ -78,9 +78,18 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ConflictText), nameof(CanSave))]
     private DeviceOption? _bluetoothHeadphone;
 
+    /// <summary>切換完成後套用到目標裝置的音量（0-100%），預設 50%。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TargetVolumeText))]
+    private double _targetVolume = AppSettings.DefaultTargetVolumePercent;
+
+    /// <summary>滑桿右側顯示的目前音量。</summary>
+    public string TargetVolumeText => $"{Math.Round(TargetVolume):0}%";
+
     public SettingsViewModel(IAudioService audio, AppSettings settings)
     {
         _settings = settings;
+        _targetVolume = settings.TargetVolumePercent;
         _devices = audio.GetActiveOutputDevices()
             .Select(device => (device, audio.TryGetEndpointVolumePercent(device.Id) is not null))
             .ToList();
@@ -137,6 +146,7 @@ public partial class SettingsViewModel : ObservableObject
         _settings.HeadphoneDevice = ToAssignment(Headphone);
         _settings.BluetoothSpeakerDevice = ToAssignment(BluetoothSpeaker);
         _settings.BluetoothHeadphoneDevice = ToAssignment(BluetoothHeadphone);
+        _settings.TargetVolumePercent = (int)Math.Round(TargetVolume);
         _settings.Save();
     }
 
