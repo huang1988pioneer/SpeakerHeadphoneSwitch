@@ -7,3 +7,4 @@ TestResults/
 *.suo
 dist/
 .DS_Store
+.workbuddy-ai/
