@@ -49,7 +49,8 @@ echo "== dotnet publish ($RID) =="
 
 echo "== 組成 $APP_NAME.app =="
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp -R "$PUBLISH_DIR/" "$APP_DIR/Contents/MacOS/"
+# 用 ditto 而不是 cp -R：cp 會丟掉擴充屬性，簽章在 --deep --strict 驗證時會失敗。
+ditto "$PUBLISH_DIR" "$APP_DIR/Contents/MacOS"
 # 符號檔不需要隨安裝包散佈。
 find "$APP_DIR/Contents/MacOS" -name "*.pdb" -delete
 sed -e "s/__VERSION__/$VERSION/g" \
@@ -70,7 +71,7 @@ codesign --verify --deep --strict "$APP_DIR"
 echo "== 產生 DMG =="
 STAGING="$WORK_DIR/staging"
 mkdir -p "$STAGING"
-cp -R "$APP_DIR" "$STAGING/"
+ditto "$APP_DIR" "$STAGING/$APP_NAME.app"
 ln -s /Applications "$STAGING/Applications"
 hdiutil create \
     -volname "$DISPLAY_NAME" \
