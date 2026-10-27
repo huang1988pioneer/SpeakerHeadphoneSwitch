@@ -60,6 +60,10 @@ packaging/macos/build-macos.sh
 圖示由 `swift packaging/macos/make-icon.swift` 產生：`packaging/macos/AppIcon.icns`（macOS bundle）、
 `Assets/AppIcon.png`（視窗與 Dock 圖示）、`Assets/AppIcon.ico`（Windows exe 圖示）。
 
+**macOS 的啟動方式**：請用 `.app`（雙擊，或拖到「應用程式」／Dock）。macOS 沒有「單一執行檔」這種啟動方式——
+Finder 雙擊 `.app` 之外的 Unix 執行檔（例如 `-p:PublishSingleFile=true` 產出的檔案）時，一定先開一個終端機
+視窗再執行它，這是 Finder 的既定行為，不是程式的問題。要「點兩下就開、背後沒有終端機視窗」，就只能用 `.app`。
+
 ad-hoc 簽章未經 Apple 公證；從其他電腦下載的 DMG 第一次開啟時，請在 Finder 中按右鍵 →「打開」。
 
 ## 技術架構
